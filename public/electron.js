@@ -1,5 +1,6 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs').promises;
 
 // Simple development check instead of electron-is-dev
 const isDev = process.env.NODE_ENV === 'development' || process.defaultApp || /node_modules[\\/]electron[\\/]/.test(process.execPath);
@@ -11,7 +12,8 @@ function createWindow() {
         height: 800,
         webPreferences: {
             nodeIntegration: true,
-            contextIsolation: false
+            contextIsolation: false,
+            enableRemoteModule: true
         }
     });
 
@@ -26,7 +28,51 @@ function createWindow() {
     if (isDev) {
         mainWindow.webContents.openDevTools();
     }
+
+    return mainWindow;
 }
+
+// IPC Handlers - Think of these as your REST endpoints
+ipcMain.handle('select-music-folder', async () => {
+    const result = await dialog.showOpenDialog({
+        properties: ['openDirectory'],
+        title: 'Select Music Library Folder'
+    });
+
+    if (!result.canceled && result.filePaths.length > 0) {
+        return result.filePaths[0];
+    }
+    return null;
+});
+
+ipcMain.handle('scan-album-folders', async (event, folderPath) => {
+    try {
+        const albums = [];
+        const items = await fs.readdir(folderPath, { withFileTypes: true });
+
+        for (const item of items) {
+            if (item.isDirectory()) {
+                const albumPath = path.join(folderPath, item.name);
+                const files = await fs.readdir(albumPath);
+                const mp3Files = files.filter(file => file.toLowerCase().endsWith('.mp3'));
+
+                if (mp3Files.length > 0) {
+                    albums.push({
+                        name: item.name,
+                        path: albumPath,
+                        trackCount: mp3Files.length,
+                        tracks: mp3Files
+                    });
+                }
+            }
+        }
+
+        return albums;
+    } catch (error) {
+        console.error('Error scanning albums:', error);
+        throw error;
+    }
+});
 
 // This method will be called when Electron has finished initialization
 app.whenReady().then(createWindow);
