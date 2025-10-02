@@ -1,8 +1,22 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
-const fs = require('fs');              // for constants
-const fsp = require('fs').promises;    // for async/await
+const fs = require('fs'); // for constants
+const fsp = require('fs').promises; // for async/await
 const mm = require('music-metadata');
+
+// Path to hardcoded config.json in the repository
+const configPath = path.join(__dirname, 'config.json');
+
+// Utility function to read the hardcoded config file
+const readConfig = async () => {
+    try {
+        const configData = await fsp.readFile(configPath, 'utf-8');
+        return JSON.parse(configData);
+    } catch (error) {
+        console.error('Error reading config file:', error.message);
+        return { musicFolderPath: "" }; // Default empty path
+    }
+};
 
 // Simple development check instead of electron-is-dev
 const isDev = process.env.NODE_ENV === 'development' || process.defaultApp || /node_modules[\\/]electron[\\/]/.test(process.execPath);
@@ -35,20 +49,19 @@ function createWindow() {
 }
 
 // IPC Handlers - Think of these as your REST endpoints
-ipcMain.handle('select-music-folder', async () => {
-    const result = await dialog.showOpenDialog({
-        properties: ['openDirectory'],
-        title: 'Select Music Library Folder'
-    });
-
-    if (!result.canceled && result.filePaths.length > 0) {
-        return result.filePaths[0];
-    }
-    return null;
-});
-
-ipcMain.handle('scan-album-folders', async (event, folderPath) => {
+ipcMain.handle('scan-album-folders', async () => {
     try {
+        const config = await readConfig();
+        const folderPath = config.musicFolderPath;
+
+        if (!folderPath) {
+            return { success: false, message: 'Music folder path is not configured in config.json.' };
+        }
+
+        if (!fs.existsSync(folderPath)) {
+            return { success: false, message: 'Configured folder path does not exist. Please update config.json.' };
+        }
+
         const albums = [];
         console.log('Scanning folderPath:', folderPath);
 
@@ -67,7 +80,6 @@ ipcMain.handle('scan-album-folders', async (event, folderPath) => {
                     for (const albumFolder of albumFolders) {
                         if (albumFolder.isDirectory()) {
                             const albumPath = path.join(artistPath, albumFolder.name);
-                            console.log('Album path:', albumPath);
 
                             try {
                                 const albumStats = await fsp.stat(albumPath); // Get album folder stats
@@ -82,14 +94,12 @@ ipcMain.handle('scan-album-folders', async (event, folderPath) => {
 
                                     for (const mp3File of mp3Files) {
                                         const filePath = path.join(albumPath, mp3File);
-                                        console.log('Checking file path:', filePath);
 
                                         try {
                                             // Check file accessibility before reading stats
                                             await fsp.access(filePath, fs.constants.F_OK);
                                             const stats = await fsp.stat(filePath);
-                                            console.log('File stats:', stats);
-                                            console.log('File size:', stats.size);
+
                                             totalSize += stats.size;
                                         } catch (fileError) {
                                             console.warn(`Could not access file ${filePath}:`, fileError.message);
@@ -138,14 +148,12 @@ ipcMain.handle('scan-album-folders', async (event, folderPath) => {
         }
 
         console.log('Albums found:', albums);
-        return albums;
+        return { success: true, albums };
     } catch (error) {
         console.error('Error scanning albums:', error);
         throw error;
     }
 });
-
-
 
 // This method will be called when Electron has finished initialization
 app.whenReady().then(createWindow);

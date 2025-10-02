@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import MusicImportService from '../services/MusicImportService';
 
 const MusicImportController = () => {
-    const [selectedFolder, setSelectedFolder] = useState('');
     const [albums, setAlbums] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -10,32 +9,29 @@ const MusicImportController = () => {
     const [totalSize, setTotalSize] = useState(0); // State to track the total size of selected albums
     const [sortOrder, setSortOrder] = useState('desc'); // State to track sorting order (ascending or descending)
 
-    const handleImportMusic = async () => {
-        setIsLoading(true);
-        setError('');
+    useEffect(() => {
+        const fetchAlbums = async () => {
+            setIsLoading(true);
+            setError('');
 
-        try {
-            const result = await MusicImportService.selectMusicFolder();
+            try {
+                const result = await MusicImportService.scanMusicLibrary();
 
-            if (result.success) {
-                setSelectedFolder(result.folderPath);
-                const scanResult = await MusicImportService.scanMusicLibrary(result.folderPath);
-
-                if (scanResult.success) {
-                    setAlbums(scanResult.albums);
+                if (result.success) {
+                    setAlbums(result.albums);
                 } else {
-                    setError(scanResult.message);
+                    setError(result.message);
                 }
-            } else {
-                console.log(result.message);
+            } catch (error) {
+                console.error('Error loading music library:', error);
+                setError('Failed to load music library: ' + error.message);
+            } finally {
+                setIsLoading(false);
             }
-        } catch (error) {
-            console.error('Import failed:', error);
-            setError('Failed to import music: ' + error.message);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+        };
+
+        fetchAlbums();
+    }, []);
 
     // Function to toggle album selection and update total size
     const toggleAlbumSelection = (album) => {
@@ -86,23 +82,11 @@ const MusicImportController = () => {
                 minHeight: '100vh',
             }}
         >
-            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                <button
-                    onClick={handleImportMusic}
-                    disabled={isLoading}
-                    style={{
-                        padding: '10px 20px',
-                        backgroundColor: '#007bff',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: '5px',
-                        cursor: 'pointer',
-                        fontSize: '16px',
-                    }}
-                >
-                    {isLoading ? 'Scanning...' : 'Import Music'}
-                </button>
-            </div>
+            {isLoading && (
+                <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                    <p>Loading music library...</p>
+                </div>
+            )}
 
             {error && (
                 <div

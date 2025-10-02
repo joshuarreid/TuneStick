@@ -31,3 +31,4 @@ Thumbs.db
 # tauri rust build (if using tauri)
 /src-tauri/target
 /src-tauri/Cargo.lock
+/public/config.json
