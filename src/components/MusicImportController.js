@@ -8,6 +8,7 @@ const MusicImportController = () => {
     const [error, setError] = useState('');
     const [selectedAlbums, setSelectedAlbums] = useState([]); // State to track selected albums
     const [totalSize, setTotalSize] = useState(0); // State to track the total size of selected albums
+    const [sortOrder, setSortOrder] = useState('desc'); // State to track sorting order (ascending or descending)
 
     const handleImportMusic = async () => {
         setIsLoading(true);
@@ -57,6 +58,23 @@ const MusicImportController = () => {
             : `${sizeInMB.toFixed(2)} MB`;
     };
 
+    // Function to sort albums by date modified
+    const sortAlbums = (order) => {
+        const sortedAlbums = [...albums].sort((a, b) => {
+            const dateA = new Date(a.dateModified);
+            const dateB = new Date(b.dateModified);
+            return order === 'asc' ? dateA - dateB : dateB - dateA;
+        });
+        setAlbums(sortedAlbums);
+    };
+
+    // Handle sorting dropdown change
+    const handleSortChange = (event) => {
+        const order = event.target.value;
+        setSortOrder(order);
+        sortAlbums(order);
+    };
+
     return (
         <div
             className="music-import-container"
@@ -101,6 +119,32 @@ const MusicImportController = () => {
 
             {albums.length > 0 && (
                 <>
+                    {/* Sort dropdown */}
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                        alignItems: 'center',
+                        marginBottom: '20px',
+                        marginRight: '20px'
+                    }}>
+                        <select
+                            value={sortOrder}
+                            onChange={handleSortChange}
+                            style={{
+                                padding: '5px',
+                                borderRadius: '5px',
+                                border: '1px solid #ccc',
+                                backgroundColor: '#444',
+                                color: '#fff',
+                                fontSize: '14px',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            <option value="desc">Sort by Date (Newest)</option>
+                            <option value="asc">Sort by Date (Oldest)</option>
+                        </select>
+                    </div>
+
                     {/* Display total size */}
                     <div style={{ textAlign: 'center', marginBottom: '20px', fontSize: '16px' }}>
                         <strong>Total Size of Selected Albums:</strong> {formatSize(totalSize)}

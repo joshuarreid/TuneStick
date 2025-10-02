@@ -70,6 +70,9 @@ ipcMain.handle('scan-album-folders', async (event, folderPath) => {
                             console.log('Album path:', albumPath);
 
                             try {
+                                const albumStats = await fsp.stat(albumPath); // Get album folder stats
+                                const dateModified = albumStats.mtime; // Extract modified time
+
                                 const files = await fsp.readdir(albumPath);
                                 const mp3Files = files.filter(file => file.toLowerCase().endsWith('.mp3'));
                                 console.log(`MP3 files found in ${albumFolder.name}:`, mp3Files);
@@ -119,7 +122,8 @@ ipcMain.handle('scan-album-folders', async (event, folderPath) => {
                                         trackCount: mp3Files.length,
                                         tracks: mp3Files,
                                         albumCover: albumCover,
-                                        size: totalSize
+                                        size: totalSize,
+                                        dateModified: dateModified // Include date modified
                                     });
                                 }
                             } catch (albumError) {
