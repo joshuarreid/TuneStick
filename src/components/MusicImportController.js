@@ -6,6 +6,7 @@ const MusicImportController = () => {
     const [albums, setAlbums] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+    const [selectedAlbums, setSelectedAlbums] = useState([]); // State to track selected albums
 
     const handleImportMusic = async () => {
         setIsLoading(true);
@@ -31,6 +32,17 @@ const MusicImportController = () => {
             setError('Failed to import music: ' + error.message);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    // Function to toggle album selection
+    const toggleAlbumSelection = (album) => {
+        if (selectedAlbums.includes(album)) {
+            // Remove from selection
+            setSelectedAlbums(selectedAlbums.filter((selectedAlbum) => selectedAlbum !== album));
+        } else {
+            // Add to selection
+            setSelectedAlbums([...selectedAlbums, album]);
         }
     };
 
@@ -89,25 +101,30 @@ const MusicImportController = () => {
                     {albums.map((album, index) => (
                         <div
                             key={index}
-                            className="album-card"
+                            className={`album-card ${selectedAlbums.includes(album) ? 'selected' : ''}`}
                             style={{
                                 textAlign: 'center',
                                 fontFamily: 'Arial, sans-serif',
+                                cursor: 'pointer',
+                                border: selectedAlbums.includes(album) ? '2px solid #007bff' : '2px solid transparent',
+                                borderRadius: '8px',
+                                padding: '10px',
+                                backgroundColor: selectedAlbums.includes(album) ? '#444' : 'transparent',
+                                transition: 'all 0.3s ease',
                             }}
+                            onClick={() => toggleAlbumSelection(album)} // Toggle selection on click
                         >
-                            {album.albumCover && (
-                                <img
-                                    src={album.albumCover
-                                        ? `data:${album.albumCover.format};base64,${album.albumCover.data}`
-                                        : `file://${__dirname}/assets/emptyCover.jpeg`}
-                                    alt="Album Cover"
-                                    style={{
-                                        width: '100%',
-                                        objectFit: 'cover',
-                                        borderRadius: '8px',
-                                    }}
-                                />
-                            )}
+                            <img
+                                src={album.albumCover
+                                    ? `data:${album.albumCover.format};base64,${album.albumCover.data}`
+                                    : `file://${__dirname}/assets/emptyCover.jpeg`}
+                                alt="Album Cover"
+                                style={{
+                                    width: '100%',
+                                    objectFit: 'cover',
+                                    borderRadius: '8px',
+                                }}
+                            />
                             <h4
                                 style={{
                                     margin: '10px 0 5px 0',
