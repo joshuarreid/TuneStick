@@ -1,121 +1,139 @@
-// Import React and useState to manage the component's state
 import React, { useState } from 'react';
-
-// Import the MusicImportService for handling folder selection and album scanning
 import MusicImportService from '../services/MusicImportService';
 
-// MusicImportController - Main Component
 const MusicImportController = () => {
-    // State variables (like variables that update the UI dynamically)
-    const [selectedFolder, setSelectedFolder] = useState(''); // Stores the folder path
-    const [albums, setAlbums] = useState([]); // Stores the list of albums
-    const [isLoading, setIsLoading] = useState(false); // Tracks if the app is busy scanning
-    const [error, setError] = useState(''); // Stores error messages
+    const [selectedFolder, setSelectedFolder] = useState('');
+    const [albums, setAlbums] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
 
-    // Function to handle the "Import Music" button click
     const handleImportMusic = async () => {
-        setIsLoading(true); // Start the loading state
-        setError(''); // Clear any previous errors
+        setIsLoading(true);
+        setError('');
 
         try {
-            // Ask the user to select a folder
             const result = await MusicImportService.selectMusicFolder();
 
             if (result.success) {
-                // Save the selected folder path
                 setSelectedFolder(result.folderPath);
-
-                // Scan the selected folder for albums
                 const scanResult = await MusicImportService.scanMusicLibrary(result.folderPath);
 
                 if (scanResult.success) {
-                    // Save the list of albums found
                     setAlbums(scanResult.albums);
                 } else {
-                    // Show an error message if scanning fails
                     setError(scanResult.message);
                 }
             } else {
-                console.log(result.message); // Log a message if folder selection is canceled
+                console.log(result.message);
             }
         } catch (error) {
-            console.error('Import failed:', error); // Log the error to the console
-            setError('Failed to import music: ' + error.message); // Show an error message
+            console.error('Import failed:', error);
+            setError('Failed to import music: ' + error.message);
         } finally {
-            setIsLoading(false); // Stop the loading state
+            setIsLoading(false);
         }
     };
 
-    // The HTML-like structure that React will render
     return (
-        <div className="music-import-container">
-            <h2>Import Music</h2>
+        <div
+            className="music-import-container"
+            style={{
+                backgroundColor: '#2c2c2c',
+                color: '#fff',
+                fontFamily: 'Arial, sans-serif',
+                padding: '20px',
+                minHeight: '100vh',
+            }}
+        >
+            <h1 style={{ fontSize: '36px', textAlign: 'center', marginBottom: '20px' }}>TuneStick</h1>
+            <h2 style={{ fontSize: '24px', textAlign: 'center', marginBottom: '20px' }}>Recently Added</h2>
 
-            {/* Import Music Button */}
-            <button
-                onClick={handleImportMusic} // Runs the handleImportMusic function when clicked
-                disabled={isLoading} // Disables the button while scanning
-                className="import-button"
-            >
-                {/* Change button text based on loading state */}
-                {isLoading ? 'Scanning...' : 'Import Music'}
-            </button>
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                <button
+                    onClick={handleImportMusic}
+                    disabled={isLoading}
+                    style={{
+                        padding: '10px 20px',
+                        backgroundColor: '#007bff',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '5px',
+                        cursor: 'pointer',
+                        fontSize: '16px',
+                    }}
+                >
+                    {isLoading ? 'Scanning...' : 'Import Music'}
+                </button>
+            </div>
 
-            {/* Show an error message if there's an error */}
             {error && (
-                <div className="error-message" style={{ color: 'red', marginTop: '10px' }}>
+                <div
+                    className="error-message"
+                    style={{
+                        color: 'red',
+                        textAlign: 'center',
+                        marginBottom: '20px',
+                    }}
+                >
                     {error}
                 </div>
             )}
 
-            {/* Show the selected folder path */}
-            {selectedFolder && (
-                <div className="selected-folder" style={{ marginTop: '20px' }}>
-                    <h3>Selected Folder:</h3>
-                    <p>{selectedFolder}</p>
-                </div>
-            )}
-
-            {/* Display the list of albums if any are found */}
             {albums.length > 0 && (
-                <div className="albums-list" style={{ marginTop: '20px' }}>
-                    <h3>Found Albums ({albums.length}):</h3>
-
-                    {/* Grid for displaying albums */}
-                    <div className="albums-grid" style={{
+                <div
+                    className="albums-grid"
+                    style={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
-                        gap: '15px',
-                        marginTop: '15px'
-                    }}>
-                        {/* Map over the albums array and create a card for each album */}
-                        {albums.map((album, index) => (
-                            <div key={index} className="album-card" style={{
-                                border: '1px solid #ddd',
-                                padding: '15px',
-                                borderRadius: '8px',
-                                backgroundColor: '#f9f9f9'
-                            }}>
-                                <h4 style={{ margin: '0 0 10px 0', color: '#333' }}>
-                                    {album.album}
-                                </h4>
-                                <p style={{ margin: '5px 0', color: '#666' }}>
-                                    <strong>Artist:</strong> {album.artist}
-                                </p>
-                                <p style={{ margin: '5px 0', color: '#666' }}>
-                                    <strong>Tracks:</strong> {album.trackCount}
-                                </p>
-                                <p style={{ margin: '5px 0', fontSize: '12px', color: '#888' }}>
-                                    {album.path}
-                                </p>
-                            </div>
-                        ))}
-                    </div>
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+                        gap: '20px',
+                        padding: '0 20px',
+                    }}
+                >
+                    {albums.map((album, index) => (
+                        <div
+                            key={index}
+                            className="album-card"
+                            style={{
+                                textAlign: 'center',
+                                fontFamily: 'Arial, sans-serif',
+                            }}
+                        >
+                            {album.albumCover && (
+                                <img
+                                    src={`data:${album.albumCover.format};base64,${album.albumCover.data}`}
+                                    alt={`${album.album} Cover`}
+                                    style={{
+                                        width: '100%',
+                                        objectFit: 'cover',
+                                        borderRadius: '8px',
+                                    }}
+                                />
+                            )}
+                            <h4
+                                style={{
+                                    margin: '10px 0 5px 0',
+                                    fontSize: '12px',
+                                    fontWeight: 'bold',
+                                    color: '#fff',
+                                }}
+                            >
+                                {album.album}
+                            </h4>
+                            <p
+                                style={{
+                                    margin: '0',
+                                    fontSize: '10px',
+                                    color: '#ccc',
+                                }}
+                            >
+                                {album.artist}
+                            </p>
+                        </div>
+                    ))}
                 </div>
             )}
         </div>
     );
 };
 
-// Export the component so it can be used in other files
 export default MusicImportController;
