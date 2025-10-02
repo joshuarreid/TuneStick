@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import MusicImportService from '../services/MusicImportService';
+import emptyCoverImage from '../assets/emptyCover.jpeg';
 
 const MusicImportController = () => {
     const [albums, setAlbums] = useState([]);
@@ -234,7 +235,7 @@ const MusicImportController = () => {
                                 <img
                                     src={album.albumCover
                                         ? `data:${album.albumCover.format};base64,${album.albumCover.data}`
-                                        : '/assets/emptyCover.jpeg'}
+                                        : emptyCoverImage}
                                     alt="Album Cover"
                                     style={{
                                         width: '100%',

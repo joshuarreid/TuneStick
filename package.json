@@ -3,12 +3,14 @@
   "version": "1.0.0",
   "description": "Desktop Album Manager",
   "main": "public/electron.js",
+  "homepage": "./",
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "electron": "electron .",
     "electron-dev": "concurrently \"npm start\" \"wait-on http://localhost:3000 && electron .\"",
-    "dist": "npm run build && electron-builder"
+    "dist": "npm run build && electron-builder",
+    "dist-mac": "npm run build && electron-builder --mac"
   },
   "keywords": [],
   "author": "joshuarreid",
@@ -25,6 +27,32 @@
     "electron-builder": "^24.9.1",
     "electron-is-dev": "^3.0.1",
     "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.joshuarreid.tunestick",
+    "productName": "TuneStick",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "build/**/*",
+      "public/electron.js",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "icon": "public/assets/app.icns",
+      "category": "public.app-category.music",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64", "arm64"]
+        }
+      ]
+    }
   },
   "browserslist": {
     "production": [
