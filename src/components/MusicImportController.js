@@ -100,8 +100,10 @@ const MusicImportController = () => {
                         >
                             {album.albumCover && (
                                 <img
-                                    src={`data:${album.albumCover.format};base64,${album.albumCover.data}`}
-                                    alt={`${album.album} Cover`}
+                                    src={album.albumCover
+                                        ? `data:${album.albumCover.format};base64,${album.albumCover.data}`
+                                        : `file://${__dirname}/assets/emptyCover.jpeg`}
+                                    alt="Album Cover"
                                     style={{
                                         width: '100%',
                                         objectFit: 'cover',
