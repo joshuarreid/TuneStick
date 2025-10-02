@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
+const mm = require('music-metadata'); // Import music-metadata library
 
 // Simple development check instead of electron-is-dev
 const isDev = process.env.NODE_ENV === 'development' || process.defaultApp || /node_modules[\\/]electron[\\/]/.test(process.execPath);
@@ -73,13 +74,26 @@ ipcMain.handle('scan-album-folders', async (event, folderPath) => {
                                 console.log(`MP3 files found in ${albumFolder.name}:`, mp3Files);
 
                                 if (mp3Files.length > 0) {
+                                    // Extract album artwork (if available) from the first MP3 file
+                                    let albumCover = null;
+                                    const metadata = await mm.parseFile(path.join(albumPath, mp3Files[0]));
+
+                                    if (metadata.common.picture && metadata.common.picture.length > 0) {
+                                        const picture = metadata.common.picture[0];
+                                        albumCover = {
+                                            format: picture.format,
+                                            data: picture.data.toString('base64') // Convert image buffer to base64
+                                        };
+                                    }
+
                                     albums.push({
                                         name: albumFolder.name,
                                         artist: artistFolder.name,
                                         album: albumFolder.name,
                                         path: albumPath,
                                         trackCount: mp3Files.length,
-                                        tracks: mp3Files
+                                        tracks: mp3Files,
+                                        albumCover: albumCover // Include album cover in the result
                                     });
                                 }
                             } catch (error) {
