@@ -63,9 +63,9 @@ const MusicImportController = () => {
 
             if (result.success) {
                 setTransferProgress(100);
-                // Optionally clear selection after successful transfer
+                // Clear selection after successful transfer
                 setSelectedAlbums([]);
-                setTotalSize(0);
+                setTotalSize(0); // Add this line to fix the bug
             } else {
                 setError(result.message);
             }
