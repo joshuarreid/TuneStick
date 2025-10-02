@@ -45,9 +45,6 @@ const MusicImportController = () => {
                 minHeight: '100vh',
             }}
         >
-            <h1 style={{ fontSize: '36px', textAlign: 'center', marginBottom: '20px' }}>TuneStick</h1>
-            <h2 style={{ fontSize: '24px', textAlign: 'center', marginBottom: '20px' }}>Recently Added</h2>
-
             <div style={{ textAlign: 'center', marginBottom: '20px' }}>
                 <button
                     onClick={handleImportMusic}
