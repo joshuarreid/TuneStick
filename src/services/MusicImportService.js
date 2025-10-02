@@ -5,44 +5,52 @@ class MusicImportService {
         this.ipcRenderer = ipcRenderer;
     }
 
-    /**
-     * Scans the music library for albums
-     * This now uses the hardcoded path from config.json
-     */
     async scanMusicLibrary() {
         try {
-            console.log('Invoking scan-album-folders');
             const result = await this.ipcRenderer.invoke('scan-album-folders');
-            console.log('scan-album-folders returned:', result);
             if (!result.success) {
                 return { success: false, message: result.message };
             }
-
-            return { success: true, albums: result.albums, message: `Found ${result.albums.length} albums` };
+            return { success: true, albums: result.albums };
         } catch (error) {
             console.error('Error scanning music library:', error);
             return { success: false, message: error.message };
         }
     }
 
-    /**
-     * Opens native file dialog and returns selected destination folder path
-     */
-    async selectDestinationFolder() {
+    async transferAlbums(albums, onProgress) {
         try {
-            const folderPath = await this.ipcRenderer.invoke('select-destination-folder');
-
-            if (!folderPath) {
-                return { success: false, message: 'User canceled selection' };
+            if (!albums || albums.length === 0) {
+                throw new Error('No albums provided for transfer.');
             }
 
-            return {
-                success: true,
-                folderPath: folderPath,
-                message: 'Destination folder selected successfully'
+            const destination = await this.ipcRenderer.invoke('select-destination-folder');
+            if (!destination) {
+                throw new Error('No destination folder selected.');
+            }
+
+            // Set up progress listener
+            const progressListener = (event, progress) => {
+                onProgress(progress);
             };
+
+            this.ipcRenderer.on('transfer-progress', progressListener);
+
+            try {
+                const result = await this.ipcRenderer.invoke('transfer-albums', { albums, destination });
+
+                // Clean up the listener
+                this.ipcRenderer.removeListener('transfer-progress', progressListener);
+
+                return result;
+            } catch (error) {
+                // Clean up the listener in case of error
+                this.ipcRenderer.removeListener('transfer-progress', progressListener);
+                throw error;
+            }
+
         } catch (error) {
-            console.error('Error selecting destination folder:', error);
+            console.error('Error during transfer:', error);
             return { success: false, message: error.message };
         }
     }

@@ -5,10 +5,11 @@ const MusicImportController = () => {
     const [albums, setAlbums] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
-    const [selectedAlbums, setSelectedAlbums] = useState([]); // State to track selected albums
-    const [totalSize, setTotalSize] = useState(0); // State to track the total size of selected albums
-    const [sortOrder, setSortOrder] = useState('desc'); // State to track sorting order (ascending or descending)
-    const [destinationFolder, setDestinationFolder] = useState(''); // State to track the selected destination folder
+    const [selectedAlbums, setSelectedAlbums] = useState([]);
+    const [totalSize, setTotalSize] = useState(0);
+    const [sortOrder, setSortOrder] = useState('desc');
+    const [isTransferring, setIsTransferring] = useState(false);
+    const [transferProgress, setTransferProgress] = useState(0);
 
     useEffect(() => {
         const fetchAlbums = async () => {
@@ -34,60 +35,53 @@ const MusicImportController = () => {
         fetchAlbums();
     }, []);
 
-    // Function to toggle album selection and update total size
     const toggleAlbumSelection = (album) => {
         if (selectedAlbums.includes(album)) {
-            // Remove album from selection
             setSelectedAlbums(selectedAlbums.filter((selectedAlbum) => selectedAlbum !== album));
-            setTotalSize((prevTotalSize) => prevTotalSize - album.size); // Subtract album size
+            setTotalSize((prevTotalSize) => prevTotalSize - album.size);
         } else {
-            // Add album to selection
             setSelectedAlbums([...selectedAlbums, album]);
-            setTotalSize((prevTotalSize) => prevTotalSize + album.size); // Add album size
+            setTotalSize((prevTotalSize) => prevTotalSize + album.size);
         }
     };
 
-    // Helper function to format size in MB/GB
+    const startTransfer = async () => {
+        if (selectedAlbums.length === 0) {
+            setError('Please select at least one album to transfer.');
+            return;
+        }
+
+        setIsTransferring(true);
+        setTransferProgress(0);
+        setError(''); // Clear any previous errors
+
+        try {
+            const result = await MusicImportService.transferAlbums(
+                selectedAlbums,
+                (progress) => setTransferProgress(progress)
+            );
+
+            if (result.success) {
+                setTransferProgress(100);
+                // Optionally clear selection after successful transfer
+                setSelectedAlbums([]);
+                setTotalSize(0);
+            } else {
+                setError(result.message);
+            }
+        } catch (error) {
+            console.error('Error during transfer:', error);
+            setError('Failed to transfer albums: ' + error.message);
+        } finally {
+            setIsTransferring(false);
+        }
+    };
+
     const formatSize = (sizeInBytes) => {
         const sizeInMB = sizeInBytes / (1024 * 1024);
         return sizeInMB > 1024
             ? `${(sizeInMB / 1024).toFixed(2)} GB`
             : `${sizeInMB.toFixed(2)} MB`;
-    };
-
-    // Function to sort albums by date modified
-    const sortAlbums = (order) => {
-        const sortedAlbums = [...albums].sort((a, b) => {
-            const dateA = new Date(a.dateModified);
-            const dateB = new Date(b.dateModified);
-            return order === 'asc' ? dateA - dateB : dateB - dateA;
-        });
-        setAlbums(sortedAlbums);
-    };
-
-    // Handle sorting dropdown change
-    const handleSortChange = (event) => {
-        const order = event.target.value;
-        setSortOrder(order);
-        sortAlbums(order);
-    };
-
-    // Handle selecting destination folder for transfer
-    const handleTransferMusic = async () => {
-        setError('');
-        try {
-            const result = await MusicImportService.selectDestinationFolder();
-
-            if (result.success) {
-                setDestinationFolder(result.folderPath);
-                console.log('Destination folder selected:', result.folderPath);
-            } else {
-                setError(result.message);
-            }
-        } catch (error) {
-            console.error('Error selecting destination folder:', error);
-            setError('Failed to select destination folder: ' + error.message);
-        }
     };
 
     return (
@@ -122,52 +116,31 @@ const MusicImportController = () => {
 
             <div style={{ textAlign: 'center', marginBottom: '20px' }}>
                 <button
-                    onClick={handleTransferMusic}
+                    onClick={startTransfer}
+                    disabled={isTransferring || selectedAlbums.length === 0}
                     style={{
                         padding: '10px 20px',
-                        backgroundColor: '#28a745',
+                        backgroundColor: isTransferring ? '#6c757d' : '#007bff',
                         color: '#fff',
                         border: 'none',
                         borderRadius: '5px',
-                        cursor: 'pointer',
+                        cursor: isTransferring || selectedAlbums.length === 0 ? 'not-allowed' : 'pointer',
                         fontSize: '16px',
                     }}
                 >
-                    Transfer
+                    {isTransferring ? `Transferring... (${transferProgress}%)` : `Transfer`}
                 </button>
             </div>
 
             {albums.length > 0 && (
                 <>
-                    {/* Sort dropdown */}
-                    <div style={{
-                        display: 'flex',
-                        justifyContent: 'flex-end',
-                        alignItems: 'center',
-                        marginBottom: '20px',
-                        marginRight: '20px'
-                    }}>
-                        <select
-                            value={sortOrder}
-                            onChange={handleSortChange}
-                            style={{
-                                padding: '5px',
-                                borderRadius: '5px',
-                                border: '1px solid #ccc',
-                                backgroundColor: '#444',
-                                color: '#fff',
-                                fontSize: '14px',
-                                cursor: 'pointer',
-                            }}
-                        >
-                            <option value="desc">Sort by Date (Newest)</option>
-                            <option value="asc">Sort by Date (Oldest)</option>
-                        </select>
-                    </div>
-
-                    {/* Display total size */}
                     <div style={{ textAlign: 'center', marginBottom: '20px', fontSize: '16px' }}>
                         <strong>Total Size of Selected Albums:</strong> {formatSize(totalSize)}
+                        {selectedAlbums.length > 0 && (
+                            <span style={{ marginLeft: '20px' }}>
+                                <strong>Albums Selected:</strong> {selectedAlbums.length}
+                            </span>
+                        )}
                     </div>
 
                     <div
@@ -193,7 +166,7 @@ const MusicImportController = () => {
                                     backgroundColor: selectedAlbums.includes(album) ? '#444' : 'transparent',
                                     transition: 'all 0.3s ease',
                                 }}
-                                onClick={() => toggleAlbumSelection(album)} // Toggle selection on click
+                                onClick={() => toggleAlbumSelection(album)}
                             >
                                 <img
                                     src={album.albumCover

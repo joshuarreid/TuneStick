@@ -167,6 +167,50 @@ ipcMain.handle('select-destination-folder', async () => {
     return null;
 });
 
+ipcMain.handle('transfer-albums', async (event, data) => {
+    try {
+        console.log('Received transfer-albums data:', data);
+
+        // Extract albums and destination from the data object
+        const { albums, destination } = data || {};
+
+        console.log('Albums:', albums);
+        console.log('Destination:', destination);
+
+        if (!albums || !Array.isArray(albums) || albums.length === 0) {
+            throw new Error('No albums provided for transfer or albums is not an array.');
+        }
+        if (!destination) {
+            throw new Error('No destination folder provided.');
+        }
+
+        let progress = 0;
+        const progressUpdates = [];
+
+        for (const album of albums) {
+            const albumPath = album.path;
+            const albumName = album.name;
+            const albumDest = path.join(destination, albumName);
+
+            await fsp.mkdir(albumDest, { recursive: true });
+
+            for (const track of album.tracks) {
+                const sourceFile = path.join(albumPath, track);
+                const destFile = path.join(albumDest, track);
+                await fsp.copyFile(sourceFile, destFile);
+
+                progress += Math.floor(100 / albums.length / album.tracks.length);
+                progressUpdates.push(progress);
+            }
+        }
+
+        return { success: true, progress: progressUpdates };
+    } catch (error) {
+        console.error('Error during transfer:', error);
+        return { success: false, message: error.message };
+    }
+});
+
 // This method will be called when Electron has finished initialization
 app.whenReady().then(createWindow);
 
