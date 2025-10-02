@@ -24,6 +24,28 @@ class MusicImportService {
             return { success: false, message: error.message };
         }
     }
+
+    /**
+     * Opens native file dialog and returns selected destination folder path
+     */
+    async selectDestinationFolder() {
+        try {
+            const folderPath = await this.ipcRenderer.invoke('select-destination-folder');
+
+            if (!folderPath) {
+                return { success: false, message: 'User canceled selection' };
+            }
+
+            return {
+                success: true,
+                folderPath: folderPath,
+                message: 'Destination folder selected successfully'
+            };
+        } catch (error) {
+            console.error('Error selecting destination folder:', error);
+            return { success: false, message: error.message };
+        }
+    }
 }
 
 export default new MusicImportService();

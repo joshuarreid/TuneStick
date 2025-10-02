@@ -8,6 +8,7 @@ const MusicImportController = () => {
     const [selectedAlbums, setSelectedAlbums] = useState([]); // State to track selected albums
     const [totalSize, setTotalSize] = useState(0); // State to track the total size of selected albums
     const [sortOrder, setSortOrder] = useState('desc'); // State to track sorting order (ascending or descending)
+    const [destinationFolder, setDestinationFolder] = useState(''); // State to track the selected destination folder
 
     useEffect(() => {
         const fetchAlbums = async () => {
@@ -71,6 +72,24 @@ const MusicImportController = () => {
         sortAlbums(order);
     };
 
+    // Handle selecting destination folder for transfer
+    const handleTransferMusic = async () => {
+        setError('');
+        try {
+            const result = await MusicImportService.selectDestinationFolder();
+
+            if (result.success) {
+                setDestinationFolder(result.folderPath);
+                console.log('Destination folder selected:', result.folderPath);
+            } else {
+                setError(result.message);
+            }
+        } catch (error) {
+            console.error('Error selecting destination folder:', error);
+            setError('Failed to select destination folder: ' + error.message);
+        }
+    };
+
     return (
         <div
             className="music-import-container"
@@ -100,6 +119,23 @@ const MusicImportController = () => {
                     {error}
                 </div>
             )}
+
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                <button
+                    onClick={handleTransferMusic}
+                    style={{
+                        padding: '10px 20px',
+                        backgroundColor: '#28a745',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '5px',
+                        cursor: 'pointer',
+                        fontSize: '16px',
+                    }}
+                >
+                    Transfer
+                </button>
+            </div>
 
             {albums.length > 0 && (
                 <>

@@ -155,6 +155,18 @@ ipcMain.handle('scan-album-folders', async () => {
     }
 });
 
+ipcMain.handle('select-destination-folder', async () => {
+    const result = await dialog.showOpenDialog({
+        properties: ['openDirectory'],
+        title: 'Select Destination Folder'
+    });
+
+    if (!result.canceled && result.filePaths.length > 0) {
+        return result.filePaths[0];
+    }
+    return null;
+});
+
 // This method will be called when Electron has finished initialization
 app.whenReady().then(createWindow);
 
