@@ -1,7 +1,8 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
-const fs = require('fs').promises;
-const mm = require('music-metadata'); // Import music-metadata library
+const fs = require('fs');              // for constants
+const fsp = require('fs').promises;    // for async/await
+const mm = require('music-metadata');
 
 // Simple development check instead of electron-is-dev
 const isDev = process.env.NODE_ENV === 'development' || process.defaultApp || /node_modules[\\/]electron[\\/]/.test(process.execPath);
@@ -51,7 +52,7 @@ ipcMain.handle('scan-album-folders', async (event, folderPath) => {
         const albums = [];
         console.log('Scanning folderPath:', folderPath);
 
-        const artistFolders = await fs.readdir(folderPath, { withFileTypes: true });
+        const artistFolders = await fsp.readdir(folderPath, { withFileTypes: true });
         console.log('Artist folders found:', artistFolders.map(f => f.name));
 
         for (const artistFolder of artistFolders) {
@@ -60,7 +61,7 @@ ipcMain.handle('scan-album-folders', async (event, folderPath) => {
                 console.log('Artist path:', artistPath);
 
                 try {
-                    const albumFolders = await fs.readdir(artistPath, { withFileTypes: true });
+                    const albumFolders = await fsp.readdir(artistPath, { withFileTypes: true });
                     console.log(`Albums found in artist folder (${artistFolder.name}):`, albumFolders.map(f => f.name));
 
                     for (const albumFolder of albumFolders) {
@@ -69,21 +70,45 @@ ipcMain.handle('scan-album-folders', async (event, folderPath) => {
                             console.log('Album path:', albumPath);
 
                             try {
-                                const files = await fs.readdir(albumPath);
+                                const files = await fsp.readdir(albumPath);
                                 const mp3Files = files.filter(file => file.toLowerCase().endsWith('.mp3'));
                                 console.log(`MP3 files found in ${albumFolder.name}:`, mp3Files);
 
                                 if (mp3Files.length > 0) {
+                                    let totalSize = 0;
+
+                                    for (const mp3File of mp3Files) {
+                                        const filePath = path.join(albumPath, mp3File);
+                                        console.log('Checking file path:', filePath);
+
+                                        try {
+                                            // Check file accessibility before reading stats
+                                            await fsp.access(filePath, fs.constants.F_OK);
+                                            const stats = await fsp.stat(filePath);
+                                            console.log('File stats:', stats);
+                                            console.log('File size:', stats.size);
+                                            totalSize += stats.size;
+                                        } catch (fileError) {
+                                            console.warn(`Could not access file ${filePath}:`, fileError.message);
+                                            continue;
+                                        }
+                                    }
+
+                                    console.log(`Total size for album ${albumFolder.name}:`, totalSize);
+
                                     // Extract album artwork (if available) from the first MP3 file
                                     let albumCover = null;
-                                    const metadata = await mm.parseFile(path.join(albumPath, mp3Files[0]));
-
-                                    if (metadata.common.picture && metadata.common.picture.length > 0) {
-                                        const picture = metadata.common.picture[0];
-                                        albumCover = {
-                                            format: picture.format,
-                                            data: picture.data.toString('base64') // Convert image buffer to base64
-                                        };
+                                    try {
+                                        const metadata = await mm.parseFile(path.join(albumPath, mp3Files[0]));
+                                        if (metadata.common.picture && metadata.common.picture.length > 0) {
+                                            const picture = metadata.common.picture[0];
+                                            albumCover = {
+                                                format: picture.format,
+                                                data: picture.data.toString('base64')
+                                            };
+                                        }
+                                    } catch (metaError) {
+                                        console.warn(`Could not parse metadata for ${mp3Files[0]}:`, metaError.message);
                                     }
 
                                     albums.push({
@@ -93,16 +118,17 @@ ipcMain.handle('scan-album-folders', async (event, folderPath) => {
                                         path: albumPath,
                                         trackCount: mp3Files.length,
                                         tracks: mp3Files,
-                                        albumCover: albumCover // Include album cover in the result
+                                        albumCover: albumCover,
+                                        size: totalSize
                                     });
                                 }
-                            } catch (error) {
-                                console.warn(`Could not read album folder ${albumPath}:`, error.message);
+                            } catch (albumError) {
+                                console.warn(`Could not read album folder ${albumPath}:`, albumError.message);
                             }
                         }
                     }
-                } catch (error) {
-                    console.warn(`Could not read artist folder ${artistPath}:`, error.message);
+                } catch (artistError) {
+                    console.warn(`Could not read artist folder ${artistPath}:`, artistError.message);
                 }
             }
         }
@@ -114,6 +140,8 @@ ipcMain.handle('scan-album-folders', async (event, folderPath) => {
         throw error;
     }
 });
+
+
 
 // This method will be called when Electron has finished initialization
 app.whenReady().then(createWindow);

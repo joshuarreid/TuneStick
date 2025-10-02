@@ -7,6 +7,7 @@ const MusicImportController = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [selectedAlbums, setSelectedAlbums] = useState([]); // State to track selected albums
+    const [totalSize, setTotalSize] = useState(0); // State to track the total size of selected albums
 
     const handleImportMusic = async () => {
         setIsLoading(true);
@@ -35,15 +36,25 @@ const MusicImportController = () => {
         }
     };
 
-    // Function to toggle album selection
+    // Function to toggle album selection and update total size
     const toggleAlbumSelection = (album) => {
         if (selectedAlbums.includes(album)) {
-            // Remove from selection
+            // Remove album from selection
             setSelectedAlbums(selectedAlbums.filter((selectedAlbum) => selectedAlbum !== album));
+            setTotalSize((prevTotalSize) => prevTotalSize - album.size); // Subtract album size
         } else {
-            // Add to selection
+            // Add album to selection
             setSelectedAlbums([...selectedAlbums, album]);
+            setTotalSize((prevTotalSize) => prevTotalSize + album.size); // Add album size
         }
+    };
+
+    // Helper function to format size in MB/GB
+    const formatSize = (sizeInBytes) => {
+        const sizeInMB = sizeInBytes / (1024 * 1024);
+        return sizeInMB > 1024
+            ? `${(sizeInMB / 1024).toFixed(2)} GB`
+            : `${sizeInMB.toFixed(2)} MB`;
     };
 
     return (
@@ -89,64 +100,71 @@ const MusicImportController = () => {
             )}
 
             {albums.length > 0 && (
-                <div
-                    className="albums-grid"
-                    style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-                        gap: '20px',
-                        padding: '0 20px',
-                    }}
-                >
-                    {albums.map((album, index) => (
-                        <div
-                            key={index}
-                            className={`album-card ${selectedAlbums.includes(album) ? 'selected' : ''}`}
-                            style={{
-                                textAlign: 'center',
-                                fontFamily: 'Arial, sans-serif',
-                                cursor: 'pointer',
-                                border: selectedAlbums.includes(album) ? '2px solid #007bff' : '2px solid transparent',
-                                borderRadius: '8px',
-                                padding: '10px',
-                                backgroundColor: selectedAlbums.includes(album) ? '#444' : 'transparent',
-                                transition: 'all 0.3s ease',
-                            }}
-                            onClick={() => toggleAlbumSelection(album)} // Toggle selection on click
-                        >
-                            <img
-                                src={album.albumCover
-                                    ? `data:${album.albumCover.format};base64,${album.albumCover.data}`
-                                    : `file://${__dirname}/assets/emptyCover.jpeg`}
-                                alt="Album Cover"
+                <>
+                    {/* Display total size */}
+                    <div style={{ textAlign: 'center', marginBottom: '20px', fontSize: '16px' }}>
+                        <strong>Total Size of Selected Albums:</strong> {formatSize(totalSize)}
+                    </div>
+
+                    <div
+                        className="albums-grid"
+                        style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+                            gap: '20px',
+                            padding: '0 20px',
+                        }}
+                    >
+                        {albums.map((album, index) => (
+                            <div
+                                key={index}
+                                className={`album-card ${selectedAlbums.includes(album) ? 'selected' : ''}`}
                                 style={{
-                                    width: '100%',
-                                    objectFit: 'cover',
+                                    textAlign: 'center',
+                                    fontFamily: 'Arial, sans-serif',
+                                    cursor: 'pointer',
+                                    border: selectedAlbums.includes(album) ? '2px solid #007bff' : '2px solid transparent',
                                     borderRadius: '8px',
+                                    padding: '10px',
+                                    backgroundColor: selectedAlbums.includes(album) ? '#444' : 'transparent',
+                                    transition: 'all 0.3s ease',
                                 }}
-                            />
-                            <h4
-                                style={{
-                                    margin: '10px 0 5px 0',
-                                    fontSize: '12px',
-                                    fontWeight: 'bold',
-                                    color: '#fff',
-                                }}
+                                onClick={() => toggleAlbumSelection(album)} // Toggle selection on click
                             >
-                                {album.album}
-                            </h4>
-                            <p
-                                style={{
-                                    margin: '0',
-                                    fontSize: '10px',
-                                    color: '#ccc',
-                                }}
-                            >
-                                {album.artist}
-                            </p>
-                        </div>
-                    ))}
-                </div>
+                                <img
+                                    src={album.albumCover
+                                        ? `data:${album.albumCover.format};base64,${album.albumCover.data}`
+                                        : `file://${__dirname}/assets/emptyCover.jpeg`}
+                                    alt="Album Cover"
+                                    style={{
+                                        width: '100%',
+                                        objectFit: 'cover',
+                                        borderRadius: '8px',
+                                    }}
+                                />
+                                <h4
+                                    style={{
+                                        margin: '10px 0 5px 0',
+                                        fontSize: '12px',
+                                        fontWeight: 'bold',
+                                        color: '#fff',
+                                    }}
+                                >
+                                    {album.album}
+                                </h4>
+                                <p
+                                    style={{
+                                        margin: '0',
+                                        fontSize: '10px',
+                                        color: '#ccc',
+                                    }}
+                                >
+                                    {album.artist}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                </>
             )}
         </div>
     );
