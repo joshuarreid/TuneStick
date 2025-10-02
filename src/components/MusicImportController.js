@@ -8,8 +8,9 @@ const MusicImportController = () => {
     const [selectedAlbums, setSelectedAlbums] = useState([]);
     const [totalSize, setTotalSize] = useState(0);
     const [sortOrder, setSortOrder] = useState('desc');
-    const [isTransferring, setIsTransferring] = useState(false);
+    const [showTransferModal, setShowTransferModal] = useState(false);
     const [transferProgress, setTransferProgress] = useState(0);
+    const [transferComplete, setTransferComplete] = useState(false);
 
     useEffect(() => {
         const fetchAlbums = async () => {
@@ -51,30 +52,92 @@ const MusicImportController = () => {
             return;
         }
 
-        setIsTransferring(true);
-        setTransferProgress(0);
-        setError(''); // Clear any previous errors
-
         try {
-            const result = await MusicImportService.transferAlbums(
-                selectedAlbums,
-                (progress) => setTransferProgress(progress)
-            );
+            // First, open destination selector (Finder)
+            let destinationResult;
 
-            if (result.success) {
-                setTransferProgress(100);
-                // Clear selection after successful transfer
-                setSelectedAlbums([]);
-                setTotalSize(0); // Add this line to fix the bug
+            // Check if selectDestination method exists
+            if (MusicImportService.selectDestination && typeof MusicImportService.selectDestination === 'function') {
+                destinationResult = await MusicImportService.selectDestination();
             } else {
-                setError(result.message);
+                // Fallback - assume destination is selected or use a default method
+                console.warn('selectDestination method not found, proceeding with transfer');
+                destinationResult = { success: true };
             }
+
+            if (!destinationResult.success) {
+                setError('Destination selection cancelled or failed.');
+                return;
+            }
+
+            // Show modal and start transfer process
+            setShowTransferModal(true);
+            setTransferProgress(0);
+            setTransferComplete(false);
+            setError('');
+
+            // Simulate progress over 1 second minimum
+            const startTime = Date.now();
+            let progressInterval;
+
+            const updateProgress = (actualProgress) => {
+                const elapsedTime = Date.now() - startTime;
+                const minDuration = 1000; // 1 second minimum
+
+                if (elapsedTime < minDuration) {
+                    // If we haven't reached 1 second yet, interpolate progress
+                    const timeProgress = (elapsedTime / minDuration) * 100;
+                    setTransferProgress(Math.min(timeProgress, actualProgress));
+                } else {
+                    // After 1 second, use actual progress
+                    setTransferProgress(actualProgress);
+                }
+            };
+
+            // Start progress simulation
+            progressInterval = setInterval(() => {
+                updateProgress(transferProgress);
+            }, 50);
+
+            try {
+                const result = await MusicImportService.transferAlbums(
+                    selectedAlbums,
+                    updateProgress
+                );
+
+                // Ensure we show 100% for at least a moment
+                clearInterval(progressInterval);
+                setTransferProgress(100);
+
+                if (result.success) {
+                    // Wait a bit to show 100%, then mark as complete
+                    setTimeout(() => {
+                        setTransferComplete(true);
+                        // Clear selection after successful transfer
+                        setSelectedAlbums([]);
+                        setTotalSize(0);
+                    }, 200);
+                } else {
+                    setError(result.message);
+                    setShowTransferModal(false);
+                }
+            } catch (error) {
+                clearInterval(progressInterval);
+                console.error('Error during transfer:', error);
+                setError('Failed to transfer albums: ' + error.message);
+                setShowTransferModal(false);
+            }
+
         } catch (error) {
-            console.error('Error during transfer:', error);
-            setError('Failed to transfer albums: ' + error.message);
-        } finally {
-            setIsTransferring(false);
+            console.error('Error selecting destination:', error);
+            setError('Failed to select destination: ' + error.message);
         }
+    };
+
+    const closeModal = () => {
+        setShowTransferModal(false);
+        setTransferComplete(false);
+        setTransferProgress(0);
     };
 
     const formatSize = (sizeInBytes) => {
@@ -117,18 +180,18 @@ const MusicImportController = () => {
             <div style={{ textAlign: 'center', marginBottom: '20px' }}>
                 <button
                     onClick={startTransfer}
-                    disabled={isTransferring || selectedAlbums.length === 0}
+                    disabled={selectedAlbums.length === 0}
                     style={{
                         padding: '10px 20px',
-                        backgroundColor: isTransferring ? '#6c757d' : '#007bff',
+                        backgroundColor: selectedAlbums.length === 0 ? '#6c757d' : '#007bff',
                         color: '#fff',
                         border: 'none',
                         borderRadius: '5px',
-                        cursor: isTransferring || selectedAlbums.length === 0 ? 'not-allowed' : 'pointer',
+                        cursor: selectedAlbums.length === 0 ? 'not-allowed' : 'pointer',
                         fontSize: '16px',
                     }}
                 >
-                    {isTransferring ? `Transferring... (${transferProgress}%)` : `Transfer`}
+                    Transfer
                 </button>
             </div>
 
@@ -202,6 +265,87 @@ const MusicImportController = () => {
                         ))}
                     </div>
                 </>
+            )}
+
+            {/* Transfer Modal */}
+            {showTransferModal && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        zIndex: 1000,
+                    }}
+                >
+                    <div
+                        style={{
+                            backgroundColor: '#2c2c2c',
+                            border: '2px solid #007bff',
+                            borderRadius: '10px',
+                            padding: '30px',
+                            textAlign: 'center',
+                            minWidth: '400px',
+                            maxWidth: '500px',
+                        }}
+                    >
+                        {!transferComplete ? (
+                            <>
+                                <h3 style={{ margin: '0 0 20px 0', color: '#fff' }}>
+                                    Transferring Albums...
+                                </h3>
+                                <div
+                                    style={{
+                                        width: '100%',
+                                        height: '20px',
+                                        backgroundColor: '#444',
+                                        borderRadius: '10px',
+                                        overflow: 'hidden',
+                                        marginBottom: '20px',
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            width: `${transferProgress}%`,
+                                            height: '100%',
+                                            backgroundColor: '#007bff',
+                                            borderRadius: '10px',
+                                            transition: 'width 0.1s ease',
+                                        }}
+                                    />
+                                </div>
+                                <p style={{ margin: 0, color: '#ccc', fontSize: '18px' }}>
+                                    {Math.round(transferProgress)}%
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <h3 style={{ margin: '0 0 20px 0', color: '#28a745' }}>
+                                    Transfer Complete!
+                                </h3>
+                                <button
+                                    onClick={closeModal}
+                                    style={{
+                                        padding: '10px 20px',
+                                        backgroundColor: '#007bff',
+                                        color: '#fff',
+                                        border: 'none',
+                                        borderRadius: '5px',
+                                        cursor: 'pointer',
+                                        fontSize: '16px',
+                                    }}
+                                >
+                                    Close
+                                </button>
+                            </>
+                        )}
+                    </div>
+                </div>
             )}
         </div>
     );
