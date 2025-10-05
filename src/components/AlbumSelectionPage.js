@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import MusicImportService from '../services/MusicImportService';
+import MusicImportService from '../services/MusicLibraryService';
 import emptyCoverImage from '../assets/emptyCover.jpeg';
 
-const MusicImportController = () => {
+const AlbumSelectionPage = () => {
     const [albums, setAlbums] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -352,4 +352,4 @@ const MusicImportController = () => {
     );
 };
 
-export default MusicImportController;
+export default AlbumSelectionPage;

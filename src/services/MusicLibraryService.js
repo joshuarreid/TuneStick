@@ -1,6 +1,6 @@
 const { ipcRenderer } = window.require('electron');
 
-class MusicImportService {
+class MusicLibraryService {
     constructor() {
         this.ipcRenderer = ipcRenderer;
     }
@@ -56,4 +56,4 @@ class MusicImportService {
     }
 }
 
-export default new MusicImportService();
+export default new MusicLibraryService();
