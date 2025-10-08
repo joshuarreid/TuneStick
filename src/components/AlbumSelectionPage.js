@@ -14,6 +14,7 @@ const AlbumSelectionPage = () => {
     const [transferComplete, setTransferComplete] = useState(false);
     const [showSelectedModal, setShowSelectedModal] = useState(false);
     const [draggedIndex, setDraggedIndex] = useState(null);
+    const [sortOption, setSortOption] = useState('modified'); // 'modified', 'artist', 'album'
 
     useEffect(() => {
         const fetchAlbums = async () => {
@@ -156,6 +157,21 @@ const AlbumSelectionPage = () => {
         setDraggedIndex(null);
     };
 
+    // Sort albums whenever sortOption or albums change
+    const getSortedAlbums = () => {
+        if (!albums) return [];
+        switch (sortOption) {
+            case 'artist':
+                return [...albums].sort((a, b) => a.artist.localeCompare(b.artist));
+            case 'album':
+                return [...albums].sort((a, b) => a.album.localeCompare(b.album));
+            case 'modified':
+            default:
+                return [...albums].sort((a, b) => new Date(b.modified || b.dateModified) - new Date(a.modified || a.dateModified));
+        }
+    };
+    const sortedAlbums = getSortedAlbums();
+
     return (
         <div
             className="music-import-container"
@@ -165,8 +181,33 @@ const AlbumSelectionPage = () => {
                 fontFamily: 'Arial, sans-serif',
                 padding: '20px',
                 minHeight: '100vh',
+                position: 'relative',
             }}
         >
+            {/* Modern Sort Dropdown - now above albums, not absolute */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', width: '100%', marginBottom: '18px', marginTop: '2px' }}>
+                <select
+                    value={sortOption}
+                    onChange={e => setSortOption(e.target.value)}
+                    style={{
+                        padding: '8px 16px',
+                        borderRadius: '8px',
+                        border: '1px solid #007bff',
+                        background: '#222',
+                        color: '#fff',
+                        fontSize: '16px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                        outline: 'none',
+                        cursor: 'pointer',
+                        marginRight: '30px',
+                    }}
+                >
+                    <option value="modified">Recently Modified</option>
+                    <option value="artist">Artist</option>
+                    <option value="album">Album Name (A-Z)</option>
+                </select>
+            </div>
+
             {isLoading && (
                 <div style={{ textAlign: 'center', marginBottom: '20px' }}>
                     <p>Loading music library...</p>
@@ -243,7 +284,7 @@ const AlbumSelectionPage = () => {
                 </button>
             </div>
 
-            {albums.length > 0 && (
+            {sortedAlbums.length > 0 && (
                 <>
                     <div
                         className="albums-grid"
@@ -254,7 +295,7 @@ const AlbumSelectionPage = () => {
                             padding: '0 20px',
                         }}
                     >
-                        {albums.map((album, index) => (
+                        {sortedAlbums.map((album, index) => (
                             <div
                                 key={index}
                                 className={`album-card ${selectedAlbums.includes(album) ? 'selected' : ''}`}
