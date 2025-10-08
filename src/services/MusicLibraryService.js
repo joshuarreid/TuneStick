@@ -29,9 +29,11 @@ class MusicLibraryService {
                 throw new Error('No destination folder selected.');
             }
 
-            // Set up progress listener
+            // Listen for progress updates from main process
             const progressListener = (event, progress) => {
-                onProgress(progress);
+                if (typeof onProgress === 'function') {
+                    onProgress(progress);
+                }
             };
 
             this.ipcRenderer.on('transfer-progress', progressListener);
@@ -48,12 +50,10 @@ class MusicLibraryService {
                 this.ipcRenderer.removeListener('transfer-progress', progressListener);
                 throw error;
             }
-
         } catch (error) {
             console.error('Error during transfer:', error);
             return { success: false, message: error.message };
         }
-    }
-}
+    }}
 
 export default new MusicLibraryService();

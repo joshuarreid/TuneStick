@@ -83,28 +83,10 @@ const AlbumSelectionPage = () => {
             setTransferComplete(false);
             setError('');
 
-            // Simulate progress over 1 second minimum
-            const startTime = Date.now();
-            let progressInterval;
-
+            // Use actual backend progress updates
             const updateProgress = (actualProgress) => {
-                const elapsedTime = Date.now() - startTime;
-                const minDuration = 1000; // 1 second minimum
-
-                if (elapsedTime < minDuration) {
-                    // If we haven't reached 1 second yet, interpolate progress
-                    const timeProgress = (elapsedTime / minDuration) * 100;
-                    setTransferProgress(Math.min(timeProgress, actualProgress));
-                } else {
-                    // After 1 second, use actual progress
-                    setTransferProgress(actualProgress);
-                }
+                setTransferProgress(actualProgress);
             };
-
-            // Start progress simulation
-            progressInterval = setInterval(() => {
-                updateProgress(transferProgress);
-            }, 50);
 
             try {
                 const result = await MusicImportService.transferAlbums(
@@ -113,11 +95,9 @@ const AlbumSelectionPage = () => {
                 );
 
                 // Ensure we show 100% for at least a moment
-                clearInterval(progressInterval);
                 setTransferProgress(100);
 
                 if (result.success) {
-                    // Wait a bit to show 100%, then mark as complete
                     setTimeout(() => {
                         setTransferComplete(true);
                         // Clear selection after successful transfer
@@ -129,7 +109,6 @@ const AlbumSelectionPage = () => {
                     setShowTransferModal(false);
                 }
             } catch (error) {
-                clearInterval(progressInterval);
                 console.error('Error during transfer:', error);
                 setError('Failed to transfer albums: ' + error.message);
                 setShowTransferModal(false);

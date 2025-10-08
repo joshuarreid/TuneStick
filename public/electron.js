@@ -169,13 +169,7 @@ ipcMain.handle('select-destination-folder', async () => {
 
 ipcMain.handle('transfer-albums', async (event, data) => {
     try {
-        console.log('Received transfer-albums data:', data);
-
-        // Extract albums and destination from the data object
         const { albums, destination } = data || {};
-
-        console.log('Albums:', albums);
-        console.log('Destination:', destination);
 
         if (!albums || !Array.isArray(albums) || albums.length === 0) {
             throw new Error('No albums provided for transfer or albums is not an array.');
@@ -184,8 +178,8 @@ ipcMain.handle('transfer-albums', async (event, data) => {
             throw new Error('No destination folder provided.');
         }
 
-        let progress = 0;
-        const progressUpdates = [];
+        let albumsTransferred = 0;
+        const totalAlbums = albums.length;
 
         for (const album of albums) {
             const albumPath = album.path;
@@ -198,13 +192,20 @@ ipcMain.handle('transfer-albums', async (event, data) => {
                 const sourceFile = path.join(albumPath, track);
                 const destFile = path.join(albumDest, track);
                 await fsp.copyFile(sourceFile, destFile);
-
-                progress += Math.floor(100 / albums.length / album.tracks.length);
-                progressUpdates.push(progress);
             }
+
+            albumsTransferred++;
+            // Calculate progress percentage after each album
+            const progress = Math.round((albumsTransferred / totalAlbums) * 100);
+
+            // Send progress event to renderer
+            event.sender.send('transfer-progress', progress);
         }
 
-        return { success: true, progress: progressUpdates };
+        // Final progress update (guarantee 100%)
+        event.sender.send('transfer-progress', 100);
+
+        return { success: true };
     } catch (error) {
         console.error('Error during transfer:', error);
         return { success: false, message: error.message };
