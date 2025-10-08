@@ -12,6 +12,8 @@ const AlbumSelectionPage = () => {
     const [showTransferModal, setShowTransferModal] = useState(false);
     const [transferProgress, setTransferProgress] = useState(0);
     const [transferComplete, setTransferComplete] = useState(false);
+    const [showSelectedModal, setShowSelectedModal] = useState(false);
+    const [draggedIndex, setDraggedIndex] = useState(null);
 
     useEffect(() => {
         const fetchAlbums = async () => {
@@ -22,7 +24,11 @@ const AlbumSelectionPage = () => {
                 const result = await MusicImportService.scanMusicLibrary();
 
                 if (result.success) {
-                    setAlbums(result.albums);
+                    // Sort by recently modified (descending)
+                    const sortedAlbums = result.albums.sort(
+                        (a, b) => new Date(b.modified) - new Date(a.modified)
+                    );
+                    setAlbums(sortedAlbums);
                 } else {
                     setError(result.message);
                 }
@@ -35,7 +41,7 @@ const AlbumSelectionPage = () => {
         };
 
         fetchAlbums();
-    }, []);
+    },  []);
 
     const toggleAlbumSelection = (album) => {
         if (selectedAlbums.includes(album)) {
@@ -148,6 +154,29 @@ const AlbumSelectionPage = () => {
             : `${sizeInMB.toFixed(2)} MB`;
     };
 
+    // Remove album from selection
+    const removeSelectedAlbum = (index) => {
+        const album = selectedAlbums[index];
+        setSelectedAlbums(selectedAlbums.filter((_, i) => i !== index));
+        setTotalSize((prevTotalSize) => prevTotalSize - album.size);
+    };
+
+    // Drag and drop handlers for reordering
+    const handleDragStart = (index) => {
+        setDraggedIndex(index);
+    };
+    const handleDragOver = (index) => {
+        if (draggedIndex === null || draggedIndex === index) return;
+        const updated = [...selectedAlbums];
+        const [dragged] = updated.splice(draggedIndex, 1);
+        updated.splice(index, 0, dragged);
+        setSelectedAlbums(updated);
+        setDraggedIndex(index);
+    };
+    const handleDragEnd = () => {
+        setDraggedIndex(null);
+    };
+
     return (
         <div
             className="music-import-container"
@@ -178,18 +207,57 @@ const AlbumSelectionPage = () => {
                 </div>
             )}
 
-            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            {/* Floating Modal for Total Size and Transfer Button */}
+            <div
+                style={{
+                    position: 'fixed',
+                    bottom: '30px',
+                    right: '30px',
+                    backgroundColor: '#222',
+                    border: '2px solid #007bff',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+                    width: '350px',
+                    height: '140px',
+                    minWidth: '350px',
+                    minHeight: '140px',
+                    maxWidth: '350px',
+                    maxHeight: '140px',
+                    textAlign: 'center',
+                    zIndex: 999,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    overflow: 'hidden',
+                }}
+            >
+                <div style={{ fontSize: '16px', marginBottom: '12px', color: '#fff' }}>
+                    <strong>Total Size of Selected Albums:</strong> {formatSize(totalSize)}
+                </div>
+                {selectedAlbums.length > 0 && (
+                    <div
+                        style={{ fontSize: '14px', marginBottom: '12px', color: '#ccc', cursor: 'pointer', userSelect: 'none' }}
+                        onClick={() => {
+                            console.log('Albums Selected clicked');
+                            setShowSelectedModal(true);
+                        }}
+                    >
+                        <strong>Albums Selected:</strong> {selectedAlbums.length}
+                    </div>
+                )}
                 <button
                     onClick={startTransfer}
                     disabled={selectedAlbums.length === 0}
                     style={{
-                        padding: '10px 20px',
+                        padding: '10px 30px',
                         backgroundColor: selectedAlbums.length === 0 ? '#6c757d' : '#007bff',
                         color: '#fff',
                         border: 'none',
                         borderRadius: '5px',
                         cursor: selectedAlbums.length === 0 ? 'not-allowed' : 'pointer',
                         fontSize: '16px',
+                        width: '70%',
                     }}
                 >
                     Transfer
@@ -198,15 +266,6 @@ const AlbumSelectionPage = () => {
 
             {albums.length > 0 && (
                 <>
-                    <div style={{ textAlign: 'center', marginBottom: '20px', fontSize: '16px' }}>
-                        <strong>Total Size of Selected Albums:</strong> {formatSize(totalSize)}
-                        {selectedAlbums.length > 0 && (
-                            <span style={{ marginLeft: '20px' }}>
-                                <strong>Albums Selected:</strong> {selectedAlbums.length}
-                            </span>
-                        )}
-                    </div>
-
                     <div
                         className="albums-grid"
                         style={{
@@ -348,8 +407,92 @@ const AlbumSelectionPage = () => {
                     </div>
                 </div>
             )}
+            {/* Selected Albums Modal and Overlay - moved to root level */}
+            {showSelectedModal && (
+                <>
+                    {console.log('Selected Albums Modal should be visible', showSelectedModal, selectedAlbums)}
+                    {/* Overlay to close modal when clicking outside */}
+                    <div
+                        onClick={() => {
+                            console.log('Overlay clicked, closing modal');
+                            setShowSelectedModal(false);
+                        }}
+                        style={{
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            width: '100vw',
+                            height: '100vh',
+                            zIndex: 1000,
+                            background: 'transparent',
+                        }}
+                    />
+                    {/* Modal itself */}
+                    <div
+                        style={{
+                            position: 'fixed',
+                            bottom: '150px',
+                            right: '30px',
+                            width: '350px',
+                            maxHeight: '220px',
+                            backgroundColor: '#333',
+                            border: '2px solid #007bff',
+                            borderRadius: '10px',
+                            boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+                            overflowY: 'auto',
+                            zIndex: 1001,
+                            padding: '10px 0',
+                        }}
+                    >
+                        {selectedAlbums.length === 0 ? (
+                            <div style={{ color: '#ccc', textAlign: 'center', padding: '10px' }}>No albums selected.</div>
+                        ) : (
+                            selectedAlbums.map((album, idx) => (
+                                <div
+                                    key={album.album + idx}
+                                    draggable
+                                    onDragStart={() => handleDragStart(idx)}
+                                    onDragOver={(e) => { e.preventDefault(); handleDragOver(idx); }}
+                                    onDragEnd={handleDragEnd}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        padding: '8px 16px',
+                                        borderBottom: '1px solid #444',
+                                        background: draggedIndex === idx ? '#222' : 'transparent',
+                                        cursor: 'grab',
+                                    }}
+                                >
+                                    {/* Hamburger icon */}
+                                    <span style={{ marginRight: '12px', cursor: 'grab', fontSize: '18px' }}>
+                                        &#9776;
+                                    </span>
+                                    <span style={{ flex: 1, color: '#fff', fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {album.album}
+                                    </span>
+                                    <button
+                                        onClick={() => removeSelectedAlbum(idx)}
+                                        style={{
+                                            marginLeft: '12px',
+                                            background: 'none',
+                                            border: 'none',
+                                            color: '#ff4d4f',
+                                            fontSize: '18px',
+                                            cursor: 'pointer',
+                                        }}
+                                        title="Remove"
+                                    >
+                                        &minus;
+                                    </button>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </>
+            )}
         </div>
     );
 };
 
 export default AlbumSelectionPage;
+
