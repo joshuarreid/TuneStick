@@ -1,131 +1,43 @@
-import React, { useState, useEffect } from 'react';
-import MusicImportService from '../services/MusicLibraryService';
+import React, { useState } from 'react';
+import { useAlbums } from '../hooks/useAlbums';
+import { useAlbumSelection } from '../hooks/useAlbumSelection';
+import { useTransferAlbums } from '../hooks/useTransferAlbums';
 import emptyCoverImage from '../assets/emptyCover.jpeg';
 
 const AlbumSelectionPage = () => {
-    const [albums, setAlbums] = useState([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [selectedAlbums, setSelectedAlbums] = useState([]);
-    const [totalSize, setTotalSize] = useState(0);
-    const [sortOrder, setSortOrder] = useState('desc');
-    const [showTransferModal, setShowTransferModal] = useState(false);
-    const [transferProgress, setTransferProgress] = useState(0);
-    const [transferComplete, setTransferComplete] = useState(false);
+    const [sortOption, setSortOption] = useState('modified');
     const [showSelectedModal, setShowSelectedModal] = useState(false);
-    const [draggedIndex, setDraggedIndex] = useState(null);
-    const [sortOption, setSortOption] = useState('modified'); // 'modified', 'artist', 'album'
 
-    useEffect(() => {
-        const fetchAlbums = async () => {
-            setIsLoading(true);
-            setError('');
+    // 1. Albums hook
+    const { albums: sortedAlbums, isLoading, error: albumsError } = useAlbums(sortOption);
 
-            try {
-                const result = await MusicImportService.scanMusicLibrary();
+    // 2. Selection hook
+    const {
+        selectedAlbums,
+        totalSize,
+        draggedIndex,
+        toggleAlbumSelection,
+        removeSelectedAlbum,
+        handleDragStart,
+        handleDragOver,
+        handleDragEnd,
+        setSelectedAlbums,
+        setTotalSize
+    } = useAlbumSelection();
 
-                if (result.success) {
-                    // Sort by recently modified (descending)
-                    const sortedAlbums = result.albums.sort(
-                        (a, b) => new Date(b.modified) - new Date(a.modified)
-                    );
-                    setAlbums(sortedAlbums);
-                } else {
-                    setError(result.message);
-                }
-            } catch (error) {
-                console.error('Error loading music library:', error);
-                setError('Failed to load music library: ' + error.message);
-            } finally {
-                setIsLoading(false);
-            }
-        };
+    // 3. Transfer hook
+    const {
+        showTransferModal,
+        transferProgress,
+        transferComplete,
+        error: transferError,
+        setShowTransferModal,
+        startTransfer,
+        closeModal
+    } = useTransferAlbums(selectedAlbums, setSelectedAlbums, setTotalSize);
 
-        fetchAlbums();
-    },  []);
-
-    const toggleAlbumSelection = (album) => {
-        if (selectedAlbums.includes(album)) {
-            setSelectedAlbums(selectedAlbums.filter((selectedAlbum) => selectedAlbum !== album));
-            setTotalSize((prevTotalSize) => prevTotalSize - album.size);
-        } else {
-            setSelectedAlbums([...selectedAlbums, album]);
-            setTotalSize((prevTotalSize) => prevTotalSize + album.size);
-        }
-    };
-
-    const startTransfer = async () => {
-        if (selectedAlbums.length === 0) {
-            setError('Please select at least one album to transfer.');
-            return;
-        }
-
-        try {
-            // First, open destination selector (Finder)
-            let destinationResult;
-
-            // Check if selectDestination method exists
-            if (MusicImportService.selectDestination && typeof MusicImportService.selectDestination === 'function') {
-                destinationResult = await MusicImportService.selectDestination();
-            } else {
-                // Fallback - assume destination is selected or use a default method
-                console.warn('selectDestination method not found, proceeding with transfer');
-                destinationResult = { success: true };
-            }
-
-            if (!destinationResult.success) {
-                setError('Destination selection cancelled or failed.');
-                return;
-            }
-
-            // Show modal and start transfer process
-            setShowTransferModal(true);
-            setTransferProgress(0);
-            setTransferComplete(false);
-            setError('');
-
-            // Use actual backend progress updates
-            const updateProgress = (actualProgress) => {
-                setTransferProgress(actualProgress);
-            };
-
-            try {
-                const result = await MusicImportService.transferAlbums(
-                    selectedAlbums,
-                    updateProgress
-                );
-
-                // Ensure we show 100% for at least a moment
-                setTransferProgress(100);
-
-                if (result.success) {
-                    setTimeout(() => {
-                        setTransferComplete(true);
-                        // Clear selection after successful transfer
-                        setSelectedAlbums([]);
-                        setTotalSize(0);
-                    }, 200);
-                } else {
-                    setError(result.message);
-                    setShowTransferModal(false);
-                }
-            } catch (error) {
-                console.error('Error during transfer:', error);
-                setError('Failed to transfer albums: ' + error.message);
-                setShowTransferModal(false);
-            }
-
-        } catch (error) {
-            console.error('Error selecting destination:', error);
-            setError('Failed to select destination: ' + error.message);
-        }
-    };
-
-    const closeModal = () => {
-        setShowTransferModal(false);
-        setTransferComplete(false);
-        setTransferProgress(0);
-    };
+    // Merge errors for display
+    const error = albumsError || transferError;
 
     const formatSize = (sizeInBytes) => {
         const sizeInMB = sizeInBytes / (1024 * 1024);
@@ -133,44 +45,6 @@ const AlbumSelectionPage = () => {
             ? `${(sizeInMB / 1024).toFixed(2)} GB`
             : `${sizeInMB.toFixed(2)} MB`;
     };
-
-    // Remove album from selection
-    const removeSelectedAlbum = (index) => {
-        const album = selectedAlbums[index];
-        setSelectedAlbums(selectedAlbums.filter((_, i) => i !== index));
-        setTotalSize((prevTotalSize) => prevTotalSize - album.size);
-    };
-
-    // Drag and drop handlers for reordering
-    const handleDragStart = (index) => {
-        setDraggedIndex(index);
-    };
-    const handleDragOver = (index) => {
-        if (draggedIndex === null || draggedIndex === index) return;
-        const updated = [...selectedAlbums];
-        const [dragged] = updated.splice(draggedIndex, 1);
-        updated.splice(index, 0, dragged);
-        setSelectedAlbums(updated);
-        setDraggedIndex(index);
-    };
-    const handleDragEnd = () => {
-        setDraggedIndex(null);
-    };
-
-    // Sort albums whenever sortOption or albums change
-    const getSortedAlbums = () => {
-        if (!albums) return [];
-        switch (sortOption) {
-            case 'artist':
-                return [...albums].sort((a, b) => a.artist.localeCompare(b.artist));
-            case 'album':
-                return [...albums].sort((a, b) => a.album.localeCompare(b.album));
-            case 'modified':
-            default:
-                return [...albums].sort((a, b) => new Date(b.modified || b.dateModified) - new Date(a.modified || a.dateModified));
-        }
-    };
-    const sortedAlbums = getSortedAlbums();
 
     return (
         <div
@@ -184,7 +58,7 @@ const AlbumSelectionPage = () => {
                 position: 'relative',
             }}
         >
-            {/* Modern Sort Dropdown - now above albums, not absolute */}
+            {/* Sort Dropdown */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', width: '100%', marginBottom: '18px', marginTop: '2px' }}>
                 <select
                     value={sortOption}
@@ -258,10 +132,7 @@ const AlbumSelectionPage = () => {
                 {selectedAlbums.length > 0 && (
                     <div
                         style={{ fontSize: '14px', marginBottom: '12px', color: '#ccc', cursor: 'pointer', userSelect: 'none' }}
-                        onClick={() => {
-                            console.log('Albums Selected clicked');
-                            setShowSelectedModal(true);
-                        }}
+                        onClick={() => setShowSelectedModal(true)}
                     >
                         <strong>Albums Selected:</strong> {selectedAlbums.length}
                     </div>
@@ -285,66 +156,64 @@ const AlbumSelectionPage = () => {
             </div>
 
             {sortedAlbums.length > 0 && (
-                <>
-                    <div
-                        className="albums-grid"
-                        style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-                            gap: '20px',
-                            padding: '0 20px',
-                        }}
-                    >
-                        {sortedAlbums.map((album, index) => (
-                            <div
-                                key={index}
-                                className={`album-card ${selectedAlbums.includes(album) ? 'selected' : ''}`}
+                <div
+                    className="albums-grid"
+                    style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+                        gap: '20px',
+                        padding: '0 20px',
+                    }}
+                >
+                    {sortedAlbums.map((album, index) => (
+                        <div
+                            key={index}
+                            className={`album-card ${selectedAlbums.includes(album) ? 'selected' : ''}`}
+                            style={{
+                                textAlign: 'center',
+                                fontFamily: 'Arial, sans-serif',
+                                cursor: 'pointer',
+                                border: selectedAlbums.includes(album) ? '2px solid #007bff' : '2px solid transparent',
+                                borderRadius: '8px',
+                                padding: '10px',
+                                backgroundColor: selectedAlbums.includes(album) ? '#444' : 'transparent',
+                                transition: 'all 0.3s ease',
+                            }}
+                            onClick={() => toggleAlbumSelection(album)}
+                        >
+                            <img
+                                src={album.albumCover
+                                    ? `data:${album.albumCover.format};base64,${album.albumCover.data}`
+                                    : emptyCoverImage}
+                                alt="Album Cover"
                                 style={{
-                                    textAlign: 'center',
-                                    fontFamily: 'Arial, sans-serif',
-                                    cursor: 'pointer',
-                                    border: selectedAlbums.includes(album) ? '2px solid #007bff' : '2px solid transparent',
+                                    width: '100%',
+                                    objectFit: 'cover',
                                     borderRadius: '8px',
-                                    padding: '10px',
-                                    backgroundColor: selectedAlbums.includes(album) ? '#444' : 'transparent',
-                                    transition: 'all 0.3s ease',
                                 }}
-                                onClick={() => toggleAlbumSelection(album)}
+                            />
+                            <h4
+                                style={{
+                                    margin: '10px 0 5px 0',
+                                    fontSize: '12px',
+                                    fontWeight: 'bold',
+                                    color: '#fff',
+                                }}
                             >
-                                <img
-                                    src={album.albumCover
-                                        ? `data:${album.albumCover.format};base64,${album.albumCover.data}`
-                                        : emptyCoverImage}
-                                    alt="Album Cover"
-                                    style={{
-                                        width: '100%',
-                                        objectFit: 'cover',
-                                        borderRadius: '8px',
-                                    }}
-                                />
-                                <h4
-                                    style={{
-                                        margin: '10px 0 5px 0',
-                                        fontSize: '12px',
-                                        fontWeight: 'bold',
-                                        color: '#fff',
-                                    }}
-                                >
-                                    {album.album}
-                                </h4>
-                                <p
-                                    style={{
-                                        margin: '0',
-                                        fontSize: '10px',
-                                        color: '#ccc',
-                                    }}
-                                >
-                                    {album.artist}
-                                </p>
-                            </div>
-                        ))}
-                    </div>
-                </>
+                                {album.album}
+                            </h4>
+                            <p
+                                style={{
+                                    margin: '0',
+                                    fontSize: '10px',
+                                    color: '#ccc',
+                                }}
+                            >
+                                {album.artist}
+                            </p>
+                        </div>
+                    ))}
+                </div>
             )}
 
             {/* Transfer Modal */}
@@ -427,16 +296,12 @@ const AlbumSelectionPage = () => {
                     </div>
                 </div>
             )}
-            {/* Selected Albums Modal and Overlay - moved to root level */}
+
+            {/* Selected Albums Modal and Overlay */}
             {showSelectedModal && (
                 <>
-                    {console.log('Selected Albums Modal should be visible', showSelectedModal, selectedAlbums)}
-                    {/* Overlay to close modal when clicking outside */}
                     <div
-                        onClick={() => {
-                            console.log('Overlay clicked, closing modal');
-                            setShowSelectedModal(false);
-                        }}
+                        onClick={() => setShowSelectedModal(false)}
                         style={{
                             position: 'fixed',
                             top: 0,
@@ -447,7 +312,6 @@ const AlbumSelectionPage = () => {
                             background: 'transparent',
                         }}
                     />
-                    {/* Modal itself */}
                     <div
                         style={{
                             position: 'fixed',
@@ -483,13 +347,12 @@ const AlbumSelectionPage = () => {
                                         cursor: 'grab',
                                     }}
                                 >
-                                    {/* Hamburger icon */}
-                                    <span style={{ marginRight: '12px', cursor: 'grab', fontSize: '18px' }}>
-                                        &#9776;
-                                    </span>
+                  <span style={{ marginRight: '12px', cursor: 'grab', fontSize: '18px' }}>
+                    &#9776;
+                  </span>
                                     <span style={{ flex: 1, color: '#fff', fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        {album.album}
-                                    </span>
+                    {album.album}
+                  </span>
                                     <button
                                         onClick={() => removeSelectedAlbum(idx)}
                                         style={{
@@ -515,4 +378,3 @@ const AlbumSelectionPage = () => {
 };
 
 export default AlbumSelectionPage;
-
