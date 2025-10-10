@@ -65,5 +65,9 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "win": {
+    "icon": "public/assets/app.ico",
+    "target": "nsis"
   }
 }
