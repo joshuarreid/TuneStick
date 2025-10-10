@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import MusicLibraryService from "../services/MusicLibraryService";
+import MusicLibraryService from "../../services/MusicLibraryService";
 
 export function useTransferAlbums(selectedAlbums, setSelectedAlbums, setTotalSize) {
     const [showTransferModal, setShowTransferModal] = useState(false);

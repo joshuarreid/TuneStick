@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useAlbums } from '../hooks/useAlbums';
-import { useAlbumSelection } from '../hooks/useAlbumSelection';
-import { useTransferAlbums } from '../hooks/useTransferAlbums';
+import { useAlbums } from '../hooks/feature/useAlbums';
+import { useAlbumSelection } from '../hooks/feature/useAlbumSelection';
+import { useTransferAlbums } from '../hooks/feature/useTransferAlbums';
 import emptyCoverImage from '../assets/emptyCover.jpeg';
 
 const AlbumSelectionPage = () => {
