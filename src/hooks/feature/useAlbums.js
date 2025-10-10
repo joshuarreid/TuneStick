@@ -44,7 +44,7 @@ export function useAlbums(sortOption = 'modified') {
                 return [...albums].sort((a, b) => a.album.localeCompare(b.album));
             case 'modified':
                 default:
-                return [...albums].sort((a, b) => new Date(b.modified) - new Date(a.modified));
+                return [...albums].sort((a, b) => new Date(b.dateModified) - new Date(a.dateModified));
 
         }
     }, [albums, sortOption]);
