@@ -8,13 +8,7 @@ export default function Sidebar() {
             <div className="sidebar-divider" />
             <ul className="sidebar-list">
                 <li className="sidebar-list-item">
-                    <Link to="/" className="sidebar-link">Recently Imported</Link>
-                </li>
-                <li className="sidebar-list-item">
-                    <Link to="/albums" className="sidebar-link">Albums</Link>
-                </li>
-                <li className="sidebar-list-item">
-                    <Link to="/artists" className="sidebar-link">Artists</Link>
+                    <Link to="/" className="sidebar-link">Library</Link>
                 </li>
                 <li className="sidebar-list-item">
                     <Link to="/settings" className="sidebar-link">Settings</Link>

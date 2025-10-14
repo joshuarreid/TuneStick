@@ -1,8 +1,8 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import AlbumSelectionPage from './components/AlbumSelectionPage';
+import AlbumSelectionPage from './screens/AlbumSelectionPage/AlbumSelectionPage';
 import './App.css';
-import Sidebar from './components/Sidebar';
+import Sidebar from './components/sidebar/Sidebar';
 
 function App() {
     return (
