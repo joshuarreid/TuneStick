@@ -1,28 +1,26 @@
 # TuneStick
 
-A small React app for browsing, previewing and selecting music albums.
+A small React app for selecting albums and preparing them for transfer to a USB drive so you can listen in the car. The goal is to bring intentionality back to music listening by making it easy to curate and export focused, album-first collections.
 
 ![TuneStick screenshot](https://github.com/joshuarreid/TuneStick/blob/main/img.png?raw=true)
 
-
 ## About
 
-TuneStick is a lightweight interface for exploring album artwork, viewing album details, and selecting favorites. It's intended as a demo/showcase of a responsive album grid with modern card interactions (including a subtle, lighter white shadow on hover for album cards).
+TuneStick helps you browse album artwork, pick albums or playlists, and export a USB-ready folder of tracks to copy to a car stereo.\  
+It emphasizes deliberate listening: pick what you want to hear, export it to a USB drive, and enjoy without distractions.
 
 Key intents:
-- Browse albums in a clean, responsive grid.
-- See album details and previews.
-- Select and save favorites for quick access.
-- Simple, component-based React code suitable for learning or extension.
-
-(The screenshot is stored at `img.png` in the repository.)
+- Curate album-based listening sessions for in-car use.
+- Export selected albums to a folder suitable for copying to a USB drive.
+- Promote intentional, offline listening rather than endless streaming.
 
 ## Features
 
-- Responsive album grid
-- Modern album-card hover with a light white glow
-- Sidebar navigation
-- Built with React and `react-router-dom`
+- Select and preview albums in a clean, responsive grid.
+- Export selected albums as a USB-ready folder you can copy to a drive.
+- Modern album-card hover with a light white glow for better focus.
+- Sidebar navigation and simple playlist/favorites management.
+- Built with React and `react-router-dom`.
 
 ## Installation
 
