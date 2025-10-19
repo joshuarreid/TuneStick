@@ -21,9 +21,3 @@ Key intents:
 - Modern album-card hover with a light white glow for better focus.
 - Sidebar navigation and simple playlist/favorites management.
 - Built with React and `react-router-dom`.
-
-## Installation
-
-```bash
-npm install
-npm start
