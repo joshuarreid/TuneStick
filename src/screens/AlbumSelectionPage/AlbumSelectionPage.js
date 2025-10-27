@@ -37,7 +37,12 @@ const AlbumSelectionPage = () => {
         transferComplete,
         error: transferError,
         startTransfer,
-        closeModal
+        closeModal,
+        cancelTransfer,
+        currentTrack,
+        trackIndex,
+        totalTracks,
+        currentAlbum
     } = useTransferAlbums(selectedAlbums, setSelectedAlbums, setTotalSize);
 
     const error = albumsError || transferError;
@@ -262,6 +267,21 @@ const AlbumSelectionPage = () => {
                                 <p className="transfer-progress-text">
                                     {Math.round(transferProgress)}%
                                 </p>
+                                {currentTrack && (
+                                    <p className="transfer-current-track" style={{ marginTop: 8, color: '#cfeaff' }}>
+                                        Copying: <strong>{currentAlbum || ''}</strong> — {currentTrack} ({trackIndex}/{totalTracks})
+                                    </p>
+                                )}
+
+                                {/* New: Cancel button to stop the ongoing transfer */}
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+                                    <button
+                                        onClick={cancelTransfer}
+                                        className="cancel-btn"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
                             </>
                         ) : (
                             <>

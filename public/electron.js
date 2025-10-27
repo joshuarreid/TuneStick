@@ -54,6 +54,9 @@ function createWindow() {
 // Keep a simple in-memory selected drive path in main process
 let selectedDrivePath = null;
 
+// New: cancellation flag for ongoing transfer
+let transferCancelled = false;
+
 // IPC Handlers - Think of these as your REST endpoints
 ipcMain.handle('scan-album-folders', async () => {
     try {
@@ -262,9 +265,7 @@ ipcMain.handle('erase-drive', async (event, payload) => {
                 // Use the mount point path as the target for diskutil rename
                 // diskutil rename <mountPoint> <newName>
                 // Use quoting for safety
-                const safeDrive = drivePath;
-                const safeLabel = label;
-                await execAsync(`diskutil rename "${safeDrive}" "${safeLabel}"`);
+                await execAsync(`diskutil rename "${drivePath}" "${label}"`);
             } catch (renameErr) {
                 console.warn('Failed to rename volume:', renameErr.message || renameErr);
                 // Not fatal; proceed but return a warning
@@ -302,10 +303,25 @@ ipcMain.handle('transfer-albums', async (event, data) => {
             throw new Error('No destination folder provided.');
         }
 
-        let albumsTransferred = 0;
-        const totalAlbums = albums.length;
+        // Reset cancellation flag at the start of a transfer
+        transferCancelled = false;
+
+        // Calculate total number of tracks across all albums so we can report progress per track
+        let totalTracks = 0;
+        for (const album of albums) {
+            if (album && Array.isArray(album.tracks)) totalTracks += album.tracks.length;
+        }
+        let tracksTransferred = 0;
+        let lastPercentSent = -1; // throttle by percent change
 
         for (const album of albums) {
+            // Check cancellation before processing each album
+            if (transferCancelled) {
+                console.log('Transfer cancelled by user before processing album:', album && album.name);
+                transferCancelled = false; // reset for future transfers
+                return { success: false, cancelled: true, message: 'Transfer cancelled by user.' };
+            }
+
             const albumPath = album.path;
             const albumName = album.name;
             const albumDest = path.join(destination, albumName);
@@ -313,27 +329,53 @@ ipcMain.handle('transfer-albums', async (event, data) => {
             await fsp.mkdir(albumDest, { recursive: true });
 
             for (const track of album.tracks) {
+                // Check cancellation before each track copy
+                if (transferCancelled) {
+                    console.log('Transfer cancelled by user during copy:', track);
+                    transferCancelled = false; // reset for future transfers
+                    return { success: false, cancelled: true, message: 'Transfer cancelled by user.' };
+                }
+
                 const sourceFile = path.join(albumPath, track);
                 const destFile = path.join(albumDest, track);
                 await fsp.copyFile(sourceFile, destFile);
+
+                // Update counters
+                tracksTransferred++;
+                const progress = totalTracks > 0 ? Math.round((tracksTransferred / totalTracks) * 100) : 0;
+
+                // Always send track metadata for UI to display current file
+                event.sender.send('transfer-track', {
+                    trackName: track,
+                    trackIndex: tracksTransferred,
+                    totalTracks,
+                    album: albumName
+                });
+
+                // Only send an update when the rounded percent changes to throttle events
+                if (progress !== lastPercentSent) {
+                    lastPercentSent = progress;
+                    // send an object with progress
+                    event.sender.send('transfer-progress', { progress });
+                }
             }
-
-            albumsTransferred++;
-            // Calculate progress percentage after each album
-            const progress = Math.round((albumsTransferred / totalAlbums) * 100);
-
-            // Send progress event to renderer
-            event.sender.send('transfer-progress', progress);
         }
 
-        // Final progress update (guarantee 100%)
-        event.sender.send('transfer-progress', 100);
+        // Final progress update (guarantee 100%) with null trackName
+        event.sender.send('transfer-progress', { progress: 100 });
+        event.sender.send('transfer-track', { trackName: null, trackIndex: totalTracks, totalTracks });
 
         return { success: true };
     } catch (error) {
         console.error('Error during transfer:', error);
         return { success: false, message: error.message };
     }
+});
+
+// New: handle cancel request from renderer
+ipcMain.handle('cancel-transfer', async () => {
+    transferCancelled = true;
+    return { success: true };
 });
 
 // This method will be called when Electron has finished initialization

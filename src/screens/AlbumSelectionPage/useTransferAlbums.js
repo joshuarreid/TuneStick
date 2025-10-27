@@ -7,6 +7,12 @@ export function useTransferAlbums(selectedAlbums, setSelectedAlbums, setTotalSiz
     const [transferComplete, setTransferComplete] = useState(false);
     const [error, setError] = useState('');
 
+    // New: track-level metadata
+    const [currentTrack, setCurrentTrack] = useState(null);
+    const [trackIndex, setTrackIndex] = useState(0);
+    const [totalTracks, setTotalTracks] = useState(0);
+    const [currentAlbum, setCurrentAlbum] = useState(null);
+
     const startTransfer = async (options = {}) => {
         if (selectedAlbums.length === 0) {
             setError('Please select at least one album to transfer.');
@@ -18,12 +24,27 @@ export function useTransferAlbums(selectedAlbums, setSelectedAlbums, setTotalSiz
         setTransferComplete(false);
         setError('');
 
-        const updateProgress = (actualProgress) => {
-            setTransferProgress(actualProgress);
+        // reset track info
+        setCurrentTrack(null);
+        setTrackIndex(0);
+        setTotalTracks(0);
+        setCurrentAlbum(null);
+
+        const updateProgress = (payload) => {
+            // payload may be an object { progress, trackName, trackIndex, totalTracks, album }
+            if (payload && typeof payload === 'object') {
+                setTransferProgress(payload.progress || 0);
+                setCurrentTrack(payload.trackName || null);
+                setTrackIndex(payload.trackIndex || 0);
+                setTotalTracks(payload.totalTracks || 0);
+                setCurrentAlbum(payload.album || null);
+            } else {
+                // backward compatible: numeric progress
+                setTransferProgress(payload || 0);
+            }
         };
 
         try {
-
             const result = await MusicLibraryService.transferAlbums(selectedAlbums, updateProgress, options);
             setTransferProgress(100);
             if (result && result.success) {
@@ -31,6 +52,11 @@ export function useTransferAlbums(selectedAlbums, setSelectedAlbums, setTotalSiz
                     setTransferComplete(true);
                     setSelectedAlbums([]);
                     setTotalSize(0);
+                    // clear track metadata after completion
+                    setCurrentTrack(null);
+                    setTrackIndex(0);
+                    setTotalTracks(0);
+                    setCurrentAlbum(null);
                 }, 200);
             } else {
                 setError(result.message || 'Transfer failed');
@@ -46,6 +72,22 @@ export function useTransferAlbums(selectedAlbums, setSelectedAlbums, setTotalSiz
         setShowTransferModal(false);
         setTransferComplete(false);
         setTransferProgress(0);
+        // reset track metadata
+        setCurrentTrack(null);
+        setTrackIndex(0);
+        setTotalTracks(0);
+        setCurrentAlbum(null);
+    };
+
+    // New: cancel ongoing transfer (calls main via service). Minimal behavior — just request cancellation and hide modal.
+    const cancelTransfer = async () => {
+        try {
+            await MusicLibraryService.cancelTransfer();
+        } catch (err) {
+            console.error('Error sending cancel request:', err);
+        }
+        // Hide modal immediately; main process will stop copying and service will clean up listeners when transferAlbums resolves.
+        setShowTransferModal(false);
     };
 
     return {
@@ -59,5 +101,11 @@ export function useTransferAlbums(selectedAlbums, setSelectedAlbums, setTotalSiz
         setError,
         startTransfer,
         closeModal,
+        // track metadata
+        currentTrack,
+        trackIndex,
+        totalTracks,
+        currentAlbum,
+        cancelTransfer,
     };
 }

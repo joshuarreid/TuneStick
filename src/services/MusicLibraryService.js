@@ -65,6 +65,16 @@ class MusicLibraryService {
         }
     }
 
+    // New: cancel an ongoing transfer
+    async cancelTransfer() {
+        try {
+            return await this.ipcRenderer.invoke('cancel-transfer');
+        } catch (error) {
+            console.error('Error cancelling transfer:', error);
+            return { success: false, message: error.message };
+        }
+    }
+
     // albums: array, onProgress: fn, options: { action: 'append'|'erase', label }
     async transferAlbums(albums, onProgress, options = {}) {
         try {
@@ -108,24 +118,32 @@ class MusicLibraryService {
             }
 
             // Listen for progress updates from main process
-            const progressListener = (event, progress) => {
+            const progressListener = (event, payload) => {
                 if (typeof onProgress === 'function') {
-                    onProgress(progress);
+                    onProgress(payload);
+                }
+            };
+            const trackListener = (event, payload) => {
+                if (typeof onProgress === 'function') {
+                    onProgress(payload);
                 }
             };
 
             this.ipcRenderer.on('transfer-progress', progressListener);
+            this.ipcRenderer.on('transfer-track', trackListener);
 
             try {
                 const result = await this.ipcRenderer.invoke('transfer-albums', { albums, destination });
 
-                // Clean up the listener
+                // Clean up the listeners
                 this.ipcRenderer.removeListener('transfer-progress', progressListener);
+                this.ipcRenderer.removeListener('transfer-track', trackListener);
 
                 return result;
             } catch (error) {
-                // Clean up the listener in case of error
+                // Clean up the listeners in case of error
                 this.ipcRenderer.removeListener('transfer-progress', progressListener);
+                this.ipcRenderer.removeListener('transfer-track', trackListener);
                 throw error;
             }
         } catch (error) {
