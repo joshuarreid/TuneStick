@@ -8,6 +8,7 @@ import React, { useState } from 'react';
     const AlbumSelectionPage = () => {
         const [sortOption, setSortOption] = useState('modified');
         const [showSelectedModal, setShowSelectedModal] = useState(false);
+        const [searchQuery, setSearchQuery] = useState('');
 
         const { albums: sortedAlbums, isLoading, error: albumsError } = useAlbums(sortOption);
 
@@ -29,12 +30,22 @@ import React, { useState } from 'react';
             transferProgress,
             transferComplete,
             error: transferError,
-            setShowTransferModal,
             startTransfer,
             closeModal
         } = useTransferAlbums(selectedAlbums, setSelectedAlbums, setTotalSize);
 
         const error = albumsError || transferError;
+
+        // Filter albums by search query (album name or artist name)
+        const filteredAlbums = React.useMemo(() => {
+            if (!searchQuery || searchQuery.trim() === '') return sortedAlbums || [];
+            const q = searchQuery.toLowerCase();
+            return (sortedAlbums || []).filter(album => {
+                const albumName = (album.album || '').toLowerCase();
+                const artistName = (album.artist || '').toLowerCase();
+                return albumName.includes(q) || artistName.includes(q);
+            });
+        }, [searchQuery, sortedAlbums]);
 
         const formatSize = (sizeInBytes) => {
             const sizeInMB = sizeInBytes / (1024 * 1024);
@@ -45,17 +56,27 @@ import React, { useState } from 'react';
 
         return (
             <div className="music-import-container">
-                {/* Sort Dropdown */}
-                <div className="sort-dropdown">
-                    <select
-                        value={sortOption}
-                        onChange={e => setSortOption(e.target.value)}
-                        className="sort-select"
-                    >
-                        <option value="modified">Recently Modified</option>
-                        <option value="artist">Artist</option>
-                        <option value="album">Album Name (A-Z)</option>
-                    </select>
+                {/* Controls: Search (left) + Sort (right) */}
+                <div className="controls">
+                    <input
+                        type="text"
+                        placeholder="Search albums or artists..."
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        className="search-input"
+                        aria-label="Search albums or artists"
+                    />
+                    <div className="sort-dropdown">
+                        <select
+                            value={sortOption}
+                            onChange={e => setSortOption(e.target.value)}
+                            className="sort-select"
+                        >
+                            <option value="modified">Recently Modified</option>
+                            <option value="artist">Artist</option>
+                            <option value="album">Album Name (A-Z)</option>
+                        </select>
+                    </div>
                 </div>
 
                 {isLoading && (
@@ -92,9 +113,9 @@ import React, { useState } from 'react';
                     </button>
                 </div>
 
-                {sortedAlbums.length > 0 && (
+                {filteredAlbums.length > 0 ? (
                     <div className="albums-grid">
-                        {sortedAlbums.map((album, index) => (
+                        {filteredAlbums.map((album, index) => (
                             <div
                                 key={index}
                                 className={`album-card${selectedAlbums.includes(album) ? ' selected' : ''}`}
@@ -115,6 +136,10 @@ import React, { useState } from 'react';
                                 </p>
                             </div>
                         ))}
+                    </div>
+                ) : (
+                    <div className="no-results" style={{ textAlign: 'center', marginTop: 20, color: '#ccc' }}>
+                        No albums found.
                     </div>
                 )}
 
