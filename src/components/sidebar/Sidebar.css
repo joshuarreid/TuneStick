@@ -55,3 +55,96 @@
     background: #007bff;
     color: #fff;
 }
+
+/* Drives section styles */
+.drives-section {
+    width: 100%;
+    margin-top: 18px;
+}
+
+.drives-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 8px;
+}
+
+.refresh-drives-btn {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.06);
+    color: #fff;
+    border-radius: 6px;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.15s, transform 0.06s;
+}
+.refresh-drives-btn:hover { background: rgba(255,255,255,0.03); transform: translateY(-1px); }
+.refresh-drives-btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+.drives-loading, .no-drives {
+    color: #bfbfbf;
+    font-size: 13px;
+    padding: 6px 0 10px 0;
+}
+
+.drives-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    width: 100%;
+}
+
+.drive-item {
+    padding: 6px 0;
+    display: flex;
+    align-items: center;
+}
+
+.drive-name {
+    color: #e6eefc;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Use the native checkbox control (visible) for a cleaner modern look */
+.drive-item label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    cursor: pointer;
+    padding: 8px 8px 8px 12px; /* tighter left padding */
+    border-radius: 8px;
+    transition: background 0.12s;
+    position: relative;
+}
+
+.drive-item input[type="checkbox"] {
+    /* show native checkbox, compact size */
+    appearance: auto;
+    -webkit-appearance: auto;
+    width: 16px;
+    height: 16px;
+    margin: 0 8px 0 0;
+    cursor: pointer;
+    accent-color: #007bff; /* Chromium-based styling for checked color */
+    opacity: 1; /* ensure visible */
+    position: static; /* let it flow naturally inside the label */
+}
+
+/* subtle selected text color */
+.drive-item input[type="checkbox"]:checked + .drive-name {
+    color: #dff4ff;
+}
+
+/* hover state: subtle background only */
+.drive-item label:hover {
+    background: rgba(255,255,255,0.02);
+}
+
+/* keep spacing consistent at the bottom */
+.drives-section { margin-bottom: 18px; }

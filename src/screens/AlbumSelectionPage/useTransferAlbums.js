@@ -7,50 +7,38 @@ export function useTransferAlbums(selectedAlbums, setSelectedAlbums, setTotalSiz
     const [transferComplete, setTransferComplete] = useState(false);
     const [error, setError] = useState('');
 
-    const startTransfer = async () => {
+    const startTransfer = async (options = {}) => {
         if (selectedAlbums.length === 0) {
             setError('Please select at least one album to transfer.');
             return;
         }
+
+        setShowTransferModal(true);
+        setTransferProgress(0);
+        setTransferComplete(false);
+        setError('');
+
+        const updateProgress = (actualProgress) => {
+            setTransferProgress(actualProgress);
+        };
+
         try {
-            let destinationResult;
-            if (MusicLibraryService.selectDestination && typeof MusicLibraryService.selectDestination === 'function') {
-                destinationResult = await MusicImportService.selectDestination();
+
+            const result = await MusicLibraryService.transferAlbums(selectedAlbums, updateProgress, options);
+            setTransferProgress(100);
+            if (result && result.success) {
+                setTimeout(() => {
+                    setTransferComplete(true);
+                    setSelectedAlbums([]);
+                    setTotalSize(0);
+                }, 200);
             } else {
-                destinationResult = { success: true };
-            }
-            if (!destinationResult.success) {
-                setError('Destination selection was cancelled or failed.');
-                return;
-            }
-            setShowTransferModal(true);
-            setTransferProgress(0);
-            setTransferComplete(false);
-            setError('');
-
-            const updateProgress = (actualProgress) => {
-                setTransferProgress(actualProgress);
-            };
-
-            try {
-                const result = await MusicLibraryService.transferAlbums(selectedAlbums, updateProgress);
-                setTransferProgress(100);
-                if (result.success) {
-                    setTimeout(() => {
-                        setTransferComplete(true);
-                        setSelectedAlbums([]);
-                        setTotalSize(0);
-                    }, 200);
-                } else {
-                    setError(result.message);
-                    setShowTransferModal(false);
-                }
-            } catch (error) {
-                setError('Failed to transfer albums: ' + error.message);
+                setError(result.message || 'Transfer failed');
                 setShowTransferModal(false);
             }
-        } catch (error) {
-            setError('Failed to select destination: ' + error.message);
+        } catch (err) {
+            setError('Failed to transfer albums: ' + (err.message || err));
+            setShowTransferModal(false);
         }
     };
 

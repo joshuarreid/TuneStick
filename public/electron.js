@@ -3,6 +3,9 @@ const path = require('path');
 const fs = require('fs'); // for constants
 const fsp = require('fs').promises; // for async/await
 const mm = require('music-metadata');
+const { exec } = require('child_process');
+const util = require('util');
+const execAsync = util.promisify(exec);
 
 // Path to hardcoded config.json in the repository
 const configPath = path.join(__dirname, 'config.json');
@@ -47,6 +50,9 @@ function createWindow() {
 
     return mainWindow;
 }
+
+// Keep a simple in-memory selected drive path in main process
+let selectedDrivePath = null;
 
 // IPC Handlers - Think of these as your REST endpoints
 ipcMain.handle('scan-album-folders', async () => {
@@ -103,7 +109,6 @@ ipcMain.handle('scan-album-folders', async () => {
                                             totalSize += stats.size;
                                         } catch (fileError) {
                                             console.warn(`Could not access file ${filePath}:`, fileError.message);
-                                            continue;
                                         }
                                     }
 
@@ -152,6 +157,125 @@ ipcMain.handle('scan-album-folders', async () => {
     } catch (error) {
         console.error('Error scanning albums:', error);
         throw error;
+    }
+});
+
+// New: list mounted drives (macOS: /Volumes)
+ipcMain.handle('list-drives', async () => {
+    try {
+        const volumesRoot = (process.platform === 'darwin') ? '/Volumes' : (process.platform === 'win32' ? null : '/mnt');
+        if (!volumesRoot) {
+            return { success: false, message: 'Drive listing not implemented for this OS.' };
+        }
+
+        const entries = await fsp.readdir(volumesRoot, { withFileTypes: true });
+        const drives = [];
+        for (const entry of entries) {
+            if (entry.isDirectory()) {
+                const fullPath = path.join(volumesRoot, entry.name);
+                // Only include directories we can stat
+                try {
+                    const stats = await fsp.stat(fullPath);
+                    if (stats.isDirectory()) {
+                        drives.push({ name: entry.name, path: fullPath });
+                    }
+                } catch (err) {
+                    // ignore entries we can't stat
+                }
+            }
+        }
+        return { success: true, drives };
+    } catch (error) {
+        console.error('Error listing drives:', error.message);
+        return { success: false, message: error.message };
+    }
+});
+
+// New: set/get selected drive in main memory (simple)
+ipcMain.handle('set-selected-drive', async (event, drivePath) => {
+    // If drivePath is null/empty, clear selection
+    if (!drivePath) {
+        selectedDrivePath = null;
+        return { success: true };
+    }
+
+    // Basic safety: only allow paths under /Volumes on macOS
+    if (process.platform === 'darwin') {
+        if (!path.normalize(drivePath).startsWith('/Volumes')) {
+            return { success: false, message: 'Invalid drive path.' };
+        }
+    }
+    selectedDrivePath = drivePath;
+    return { success: true };
+});
+
+ipcMain.handle('get-selected-drive', async () => {
+    return { success: true, drive: selectedDrivePath };
+});
+
+// New: Confirm erase dialog
+ipcMain.handle('confirm-erase-drive', async (event, drivePath) => {
+    const result = await dialog.showMessageBox({
+        type: 'warning',
+        title: 'Confirm Erase',
+        message: `Are you sure you want to erase all contents of ${drivePath}? This action cannot be undone.`,
+        buttons: ['Erase', 'Cancel'],
+        defaultId: 1,
+        cancelId: 1,
+        noLink: true
+    });
+    // returns true if user clicked 'Erase' (index 0)
+    return result.response === 0;
+});
+
+// New: Erase (delete) contents of the selected drive. Accepts optional label to rename the volume (macOS).
+ipcMain.handle('erase-drive', async (event, payload) => {
+    try {
+        const { drivePath, label } = (payload && typeof payload === 'object') ? payload : { drivePath: payload };
+
+        if (!drivePath) {
+            return { success: false, message: 'No drive path provided.' };
+        }
+        // Safety: only allow /Volumes on macOS
+        if (process.platform === 'darwin') {
+            if (!path.normalize(drivePath).startsWith('/Volumes')) {
+                return { success: false, message: 'Erase operation is restricted to /Volumes on macOS.' };
+            }
+        }
+
+        // Read entries in the drive root and delete them
+        const entries = await fsp.readdir(drivePath);
+        for (const entry of entries) {
+            const entryPath = path.join(drivePath, entry);
+            try {
+                // Use rm with recursive & force
+                await fsp.rm(entryPath, { recursive: true, force: true });
+            } catch (rmErr) {
+                console.warn(`Failed to remove ${entryPath}:`, rmErr.message);
+                // continue with remaining entries
+            }
+        }
+
+        // If a label was provided and we're on macOS, try to rename the volume using diskutil
+        if (label && process.platform === 'darwin') {
+            try {
+                // Use the mount point path as the target for diskutil rename
+                // diskutil rename <mountPoint> <newName>
+                // Use quoting for safety
+                const safeDrive = drivePath;
+                const safeLabel = label;
+                await execAsync(`diskutil rename "${safeDrive}" "${safeLabel}"`);
+            } catch (renameErr) {
+                console.warn('Failed to rename volume:', renameErr.message || renameErr);
+                // Not fatal; proceed but return a warning
+                return { success: true, warning: `Erased contents but failed to rename: ${renameErr.message}` };
+            }
+        }
+
+        return { success: true };
+    } catch (error) {
+        console.error('Error erasing drive:', error.message);
+        return { success: false, message: error.message };
     }
 });
 
