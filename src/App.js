@@ -1,12 +1,12 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import AlbumSelectionPage from './screens/AlbumSelectionPage/AlbumSelectionPage';
 import './App.css';
 import Sidebar from './components/sidebar/Sidebar';
 
 function App() {
     return (
-        <BrowserRouter>
+        <>
             <Sidebar />
             <div className="main-content">
                 <Routes>
@@ -14,7 +14,7 @@ function App() {
                     {/* Add other routes here */}
                 </Routes>
             </div>
-        </BrowserRouter>
+        </>
     );
 }
 export default App;

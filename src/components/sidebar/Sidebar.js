@@ -77,11 +77,14 @@ export default function Sidebar() {
                         <li key={drive.path} className="drive-item">
                             <label>
                                 <input
-                                    type="checkbox"
+                                    type="radio"
+                                    name="selectedDrive"
+                                    value={drive.path}
                                     checked={selectedDrive === drive.path}
                                     onChange={() => onToggleDrive(drive)}
                                 />
                                 <span className="drive-name">{drive.name}</span>
+                                <div className="drive-path">{drive.path}</div>
                             </label>
                         </li>
                     ))}

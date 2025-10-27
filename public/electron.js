@@ -166,28 +166,90 @@ ipcMain.handle('scan-album-folders', async () => {
 // New: list mounted drives (macOS: /Volumes)
 ipcMain.handle('list-drives', async () => {
     try {
-        const volumesRoot = (process.platform === 'darwin') ? '/Volumes' : (process.platform === 'win32' ? null : '/mnt');
-        if (!volumesRoot) {
-            return { success: false, message: 'Drive listing not implemented for this OS.' };
-        }
-
-        const entries = await fsp.readdir(volumesRoot, { withFileTypes: true });
-        const drives = [];
-        for (const entry of entries) {
-            if (entry.isDirectory()) {
-                const fullPath = path.join(volumesRoot, entry.name);
-                // Only include directories we can stat
-                try {
-                    const stats = await fsp.stat(fullPath);
-                    if (stats.isDirectory()) {
-                        drives.push({ name: entry.name, path: fullPath });
+        if (process.platform === 'darwin') {
+            const volumesRoot = '/Volumes';
+            const entries = await fsp.readdir(volumesRoot, { withFileTypes: true });
+            const drives = [];
+            for (const entry of entries) {
+                if (entry.isDirectory()) {
+                    const fullPath = path.join(volumesRoot, entry.name);
+                    try {
+                        const stats = await fsp.stat(fullPath);
+                        if (stats.isDirectory()) {
+                            drives.push({ name: entry.name, path: fullPath });
+                        }
+                    } catch (err) {
+                        // ignore entries we can't stat
                     }
-                } catch (err) {
-                    // ignore entries we can't stat
                 }
             }
+            return { success: true, drives };
+        } else if (process.platform === 'linux') {
+            const volumesRoot = '/mnt';
+            const entries = await fsp.readdir(volumesRoot, { withFileTypes: true });
+            const drives = [];
+            for (const entry of entries) {
+                if (entry.isDirectory()) {
+                    const fullPath = path.join(volumesRoot, entry.name);
+                    try {
+                        const stats = await fsp.stat(fullPath);
+                        if (stats.isDirectory()) {
+                            drives.push({ name: entry.name, path: fullPath });
+                        }
+                    } catch (err) {
+                        // ignore entries we can't stat
+                    }
+                }
+            }
+            return { success: true, drives };
+        } else if (process.platform === 'win32') {
+            // Prefer using PowerShell to list removable drives (provides drive letter and label).
+            // Fallback to naive A:..Z: enumeration if PowerShell isn't available or the command fails.
+            try {
+                const psCmd = `powershell -NoProfile -Command "Get-Volume | Where-Object { $_.DriveType -eq 'Removable' -and $_.DriveLetter } | Select-Object DriveLetter, FileSystemLabel | ConvertTo-Json"`;
+                const { stdout } = await execAsync(psCmd);
+                let vols = [];
+                if (stdout && stdout.trim().length > 0) {
+                    // PowerShell's ConvertTo-Json returns either an object or an array
+                    vols = JSON.parse(stdout.trim());
+                }
+                const drives = [];
+                if (Array.isArray(vols)) {
+                    for (const v of vols) {
+                        const letter = (v.DriveLetter || '').toString();
+                        if (letter) {
+                            const name = v.FileSystemLabel || `${letter}:`;
+                            const drivePath = `${letter}:\\`;
+                            drives.push({ name, path: drivePath });
+                        }
+                    }
+                } else if (vols && vols.DriveLetter) {
+                    const letter = vols.DriveLetter.toString();
+                    const name = vols.FileSystemLabel || `${letter}:`;
+                    drives.push({ name, path: `${letter}:\\` });
+                }
+                return { success: true, drives };
+            } catch (psErr) {
+                // Fallback: enumerate A:..Z: and include those that exist
+                const drives = [];
+                const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                for (const ch of letters) {
+                    const drivePath = `${ch}:\\`;
+                    try {
+                        // access + stat to ensure the root exists and is accessible
+                        await fsp.access(drivePath);
+                        const stats = await fsp.stat(drivePath);
+                        if (stats.isDirectory()) {
+                            drives.push({ name: `${ch}:`, path: drivePath });
+                        }
+                    } catch (err) {
+                        // ignore non-existent or inaccessible drive letters
+                    }
+                }
+                return { success: true, drives };
+            }
         }
-        return { success: true, drives };
+
     } catch (error) {
         console.error('Error listing drives:', error.message);
         return { success: false, message: error.message };
@@ -208,6 +270,17 @@ ipcMain.handle('set-selected-drive', async (event, drivePath) => {
             return { success: false, message: 'Invalid drive path.' };
         }
     }
+
+    // Additional safety: on Windows only accept root drive paths like 'E:\\' (prevent arbitrary paths)
+    if (process.platform === 'win32') {
+        const normalized = path.normalize(drivePath);
+        // Match patterns like 'C:\\' or 'D:\\'
+        const driveRootMatch = /^[A-Za-z]:\\\\?$/.test(normalized) || /^[A-Za-z]:\\$/.test(normalized);
+        if (!driveRootMatch) {
+            return { success: false, message: 'Invalid drive path for Windows. Expected root drive like "E:\\\\".' };
+        }
+    }
+
     selectedDrivePath = drivePath;
     return { success: true };
 });
@@ -243,6 +316,15 @@ ipcMain.handle('erase-drive', async (event, payload) => {
         if (process.platform === 'darwin') {
             if (!path.normalize(drivePath).startsWith('/Volumes')) {
                 return { success: false, message: 'Erase operation is restricted to /Volumes on macOS.' };
+            }
+        }
+
+        // Safety (Windows): only allow erasing root drive paths like 'E:\\' to reduce risk of accidental deletes.
+        if (process.platform === 'win32') {
+            const normalized = path.normalize(drivePath);
+            const driveRootMatch = /^[A-Za-z]:\\\\?$/.test(normalized) || /^[A-Za-z]:\\$/.test(normalized);
+            if (!driveRootMatch) {
+                return { success: false, message: 'Erase operation on Windows is restricted to root drive paths like "E:\\\\".' };
             }
         }
 

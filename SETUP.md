@@ -36,3 +36,6 @@ Create `public/config.json` with your music library path:
 - Run PowerShell as Administrator
 - npm run build
 - npx electron-builder --win --x64
+
+
+Note: Packaged desktop apps are loaded via the file: protocol (e.g. file:///C:/.../index.html). The renderer now detects `window.location.protocol === 'file:'` and automatically uses `HashRouter` so routes continue to work in packaged builds on Windows and macOS. Development (http://localhost) still uses `BrowserRouter`.
