@@ -1,12 +1,12 @@
 import React from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import AlbumSelectionPage from './screens/AlbumSelectionPage/AlbumSelectionPage';
 import './App.css';
 import Sidebar from './components/sidebar/Sidebar';
 
 function App() {
     return (
-        <HashRouter>
+        <>
             <Sidebar />
             <div className="main-content">
                 <Routes>
@@ -16,7 +16,7 @@ function App() {
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </div>
-        </HashRouter>
+        </>
     );
 }
 
